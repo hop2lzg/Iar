@@ -45,3 +45,11 @@ $RECYCLE.BIN/
 Network Trash Folder
 Temporary Items
 .apdisk
+log
+html
+file
+excel
+dist
+build
+.idea
+*.pyc
