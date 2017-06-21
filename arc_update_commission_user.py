@@ -204,9 +204,17 @@ sql_user = conf.get("sql", "user")
 sql_pwd = conf.get("sql", "pwd")
 ms = arc.MSSQL(server=sql_server, db=sql_database, user=sql_user, pwd=sql_pwd)
 
+mail_smtp_server = conf.get("email", "smtp_server")
+mail_from_addr = conf.get("email", "from")
+mail_to_addr = conf.get("email", "to_update_user").split(';')
+mail_subject = conf.get("email", "subject") + " by user"
+
+
+mail = arc.Email(smtp_server=mail_smtp_server)
+
 sql = ('''
 declare @t date
-set @t=dateadd(day,-1,getdate())
+set @t=dateadd(day,-3,getdate())
 select aa.*,iu.Id IarId from (
 --select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
 --t.Comm,t.TourCode,t.QCComm UpdatedComm,t.QCTourCode UpdatedTourCode from Ticket t
@@ -247,6 +255,7 @@ rows = ms.ExecQuery(sql)
 # print len(rows)
 
 if len(rows) == 0:
+    mail.send(mail_from_addr, mail_to_addr, mail_subject, "No data,please confirm.")
     sys.exit(0)
 
 # list_data_sql=arc_model.load()
@@ -360,10 +369,7 @@ try:
 except Exception as e:
     logger.critical(e)
 
-mail_smtp_server = conf.get("email", "smtp_server")
-mail_from_addr = conf.get("email", "from")
-mail_to_addr = conf.get("email", "to_update_user").split(';')
-mail_subject = conf.get("email", "subject") + " by user"
+
 try:
     body = ''
     for i in list_data:
@@ -401,7 +407,7 @@ try:
 	<tbody>%s
 	</tbody></table>''' % body
 
-    mail = arc.Email(smtp_server=mail_smtp_server)
+    # mail = arc.Email(smtp_server=mail_smtp_server)
     mail.send(mail_from_addr, mail_to_addr, mail_subject, body, ['excel/' + file_name + '.xlsx'])
     logger.info('email sent')
 except Exception as e:
