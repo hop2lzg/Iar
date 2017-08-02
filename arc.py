@@ -1,7 +1,7 @@
 import os, urllib, urllib2
 import re
 import json
-import time, datetime
+import datetime
 import logging
 import logging.config
 import pyodbc
@@ -40,7 +40,7 @@ class ArcModel:
     def __save_page(self, page, arcNumber, html):
         # f=open(page+'_'+datetime.datetime.now().strftime('%Y%m%d%H:%M:%S')+'.html','wb')
         path = 'html'
-        if os.path.exists(path) == False:
+        if not os.path.exists(path):
             os.makedirs(path)
         f = open(path + '\\' + page + '_' + arcNumber + '.html', 'wb')
         try:
@@ -62,7 +62,7 @@ class ArcModel:
             name = "aca"
 
         path = name + '\\' + file_path
-        if os.path.exists(path) == False:
+        if not os.path.exists(path):
             os.makedirs(path)
         f = open(path + '\\' + fileName, 'wb')
         try:
@@ -167,8 +167,7 @@ class ArcModel:
 
         url = "https://iar2.arccorp.com/IAR/listTransactions.do"
         data = urllib.urlencode(values)
-
-        heaers = {
+        headers = {
             'Accept': self._accpet,
             'Accept-Encoding': 'gzip, deflate',
             'Accept-Language': self._accept_language,
@@ -183,7 +182,7 @@ class ArcModel:
             'Upgrade-Insecure-Requests': self._upgrade_insecure_requests,
             'User-Agent': self._user_agent
         }
-        req = urllib2.Request(url, data, heaers)
+        req = urllib2.Request(url, data, headers)
         try:
             excel = self._opener.open(req)
             # download_csv=urllib.urlretrieve(excel,'test.csv')
@@ -192,8 +191,8 @@ class ArcModel:
             if csv.find("<link") == -1:
                 self.__save_csv(name, is_this_week, arcNumber + '.csv', csv)
         except urllib2.URLError, e:
-            print arcNumber
-            print e.reason
+            # print arcNumber
+            # print e.reason
             self.logger.warning('Download csv error :' + arcNumber)
 
     def search(self, ped, action, arcNumber, token, from_date, to_date, documentNumber):
@@ -225,7 +224,7 @@ class ArcModel:
         url = "https://iar2.arccorp.com/IAR/listTransactions.do"
         data = urllib.urlencode(values)
 
-        heaers = {
+        headers = {
             'Accept': self._accpet,
             'Accept-Encoding': 'gzip, deflate, br',
             'Accept-Language': self._accept_language,
@@ -239,7 +238,7 @@ class ArcModel:
             'Upgrade-Insecure-Requests': self._upgrade_insecure_requests,
             'User-Agent': self._user_agent
         }
-        req = urllib2.Request(url, data, heaers)
+        req = urllib2.Request(url, data, headers)
         try:
             res = self._opener.open(req)
             html = res.read()
@@ -279,7 +278,7 @@ class ArcModel:
         url = "https://iar2.arccorp.com/IAR/listTransactions.do"
         data = urllib.urlencode(values)
 
-        heaers = {
+        headers = {
             'Accept': self._accpet,
             'Accept-Encoding': 'gzip, deflate, br',
             'Accept-Language': self._accept_language,
@@ -293,7 +292,7 @@ class ArcModel:
             'Upgrade-Insecure-Requests': self._upgrade_insecure_requests,
             'User-Agent': self._user_agent
         }
-        req = urllib2.Request(url, data, heaers)
+        req = urllib2.Request(url, data, headers)
         try:
             res = self._opener.open(req)
             html = res.read()
@@ -614,8 +613,8 @@ class ArcModel:
             self.logger.warning(e)
 
     def iar_logout(self, ped, action, arcNumber):
-        print "iar logout Start"
-        self.logger.debug("Iar logout")
+        # print "iar logout Start"
+        self.logger.debug("Iar logout start")
         url = "https://iar2.arccorp.com/IAR/logout.do"
         headers = {
             'Accept': self._accpet,
@@ -629,10 +628,11 @@ class ArcModel:
         }
         req = urllib2.Request(url, None, headers)
         self._opener.open(req)
-        print "iar logout end"
+        self.logger.debug("Iar logout end")
+        # print "iar logout end"
 
     def logout(self):
-        print 'Logout Start'
+        # print 'Logout Start'
         self.logger.debug('Logout start')
         headers = {
             'Accept': self._accpet,
@@ -648,11 +648,12 @@ class ArcModel:
         url = "https://myarc.arccorp.com/PortalApp/ARCGateway.portal?_nfpb=true&_st=&_pageLabel=ARC_Login&_name=logout&_nfls=false"
         req = urllib2.Request(url, None, headers)
         self._opener.open(req)
-        print 'Logout end'
+        self.logger.debug("Logout end")
+        # print 'Logout end'
 
     def store(self, data):
         path = 'file'
-        if os.path.exists(path) == False:
+        if not os.path.exists(path):
             os.makedirs(path)
         today = datetime.datetime.now().strftime('%Y%m%d')
         file_name = today + '.json'
@@ -662,7 +663,7 @@ class ArcModel:
     def load(self):
         today = datetime.datetime.now().strftime('%Y%m%d')
         file_name = 'file\\' + today + '.json'
-        if os.path.isfile(file_name) == False:
+        if not os.path.isfile(file_name):
             return None
         with open(file_name) as json_file:
             data = json.load(json_file)
@@ -682,7 +683,7 @@ class ArcModel:
         if data['Status'] == 1 or data['Status'] == 3:
             data['QCComm'] = "" if data['QCComm'] is None else data['QCComm']
             data['ArcCommUpdated'] = "" if data['ArcCommUpdated'] is None else data['ArcCommUpdated']
-            data['QCTourCode'] = "" if data['QCTourCode'] is None else data['QCTourCode']
+            data['QCTourCode'] = "" if data['QCTourCode'] is None else data['QCTourCode'].upper()
             data['ArcTourCodeUpdated'] = "" if data['ArcTourCodeUpdated'] is None else data['ArcTourCodeUpdated']
             if data['QCComm'] == data['ArcCommUpdated'] and data['QCTourCode'] == data['ArcTourCodeUpdated']:
                 is_updated = 'Success'
@@ -693,7 +694,7 @@ class ArcModel:
 
     def exportExcel(self, datas, file_name):
         path = 'excel'
-        if os.path.exists(path) == False:
+        if not os.path.exists(path):
             os.makedirs(path)
         wb = Workbook()
         ws = wb.active

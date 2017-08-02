@@ -176,33 +176,39 @@ def insert(datas):
 
 def run(user_name, datas):
     # ----------------------login
+    logger.debug(user_name)
     password = conf.get("login", user_name)
     login_html = arc_model.login(user_name, password)
     if login_html.find('You are already logged into My ARC') < 0 and login_html.find('Account Settings :') < 0:
-        logger.error('login error')
+        logger.error('login error: '+user_name)
         return
+
     # -----------------go to IAR
     iar_html = arc_model.iar()
     if not iar_html:
         logger.error('iar error')
         return
+
     ped, action, arcNumber = arc_regex.iar(iar_html, False)
     if not action:
         logger.error('regex iar error')
         arc_model.logout()
         return
+
     listTransactions_html = arc_model.listTransactions(ped, action, arcNumber)
     if not listTransactions_html:
         logger.error('listTransactions error')
         arc_model.iar_logout(ped, action, arcNumber)
         arc_model.logout()
         return
+
     token, from_date, to_date = arc_regex.listTransactions(listTransactions_html)
     if not token:
         logger.error('regex listTransactions error')
         arc_model.iar_logout(ped, action, arcNumber)
         arc_model.logout()
         return
+
     try:
         for data in datas:
             if data['Status'] != 0 and data['Status'] != 3:
@@ -213,8 +219,6 @@ def run(user_name, datas):
                 check(data, action, token, from_date, to_date)
     except Exception as ex:
         logger.critical(ex)
-    # finally:
-    #     arc_model.store(datas)
 
     arc_model.iar_logout(ped, action, arcNumber)
     arc_model.logout()
@@ -238,15 +242,27 @@ sql_pwd = conf.get("sql", "pwd")
 ms = arc.MSSQL(server=sql_server, db=sql_database, user=sql_user, pwd=sql_pwd)
 sql = ('''declare @t date
 set @t=DATEADD(DAY,-1,GETDATE())
-select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,t.Comm,QCComm,t.TourCode,QCTourCode,PaymentType,iu.Id IarId from Ticket t
+select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,t.Comm,QCComm,t.TourCode,QCTourCode,
+PaymentType,iu.Id IarId from Ticket t
 left join IarUpdate iu
 on t.Id=iu.TicketId
 where Status not like '[NV]%'
+and Status not in ('ER','RR','RX','RD')
 and FareType not in ('BULK','SR')
 and IssueDate=@t
 and t.Comm>=0
 and t.Comm<QCComm-5
-and (ISNULL(t.TourCode,'')='' or ((TicketNumber like '00[16]7%' or TicketNumber like '0147%' or TicketNumber like '1767%' or TicketNumber like '6077%' or TicketNumber like '0727%' or TicketNumber like '0657%' or TicketNumber like '1577%' or TicketNumber like '2357%' or TicketNumber like '5557%' or TicketNumber like '1607%') and t.TourCode<>''))
+and (ISNULL(t.TourCode,'')=''
+or ((TicketNumber like '00[16]7%' or TicketNumber like '00[16]86%'
+or TicketNumber like '0147%' or TicketNumber like '01486%'
+or TicketNumber like '1767%' or TicketNumber like '17686%'
+or TicketNumber like '6077%' or TicketNumber like '60786%'
+or TicketNumber like '0727%' or TicketNumber like '07286%'
+or TicketNumber like '0657%' or TicketNumber like '06586%'
+or TicketNumber like '1577%' or TicketNumber like '15786%'
+or TicketNumber like '2357%' or TicketNumber like '23586%'
+or TicketNumber like '5557%' or TicketNumber like '55586%'
+or TicketNumber like '1607%' or TicketNumber like '16086%') and t.TourCode<>''))
 order by ArcNumber,Ticket
 ''')
 
@@ -280,14 +296,11 @@ if not list_data:
             v['Status'] = 3
         list_data.append(v)
 
-
 try:
     section = "arc"
     for option in conf.options(section):
         logger.debug(option)
-        # print option
         arc_numbers = conf.get(section, option).split(',')
-        # print arc_numbers
         list_data_account = filter(lambda x: x['ArcNumber'] in arc_numbers, list_data)
         if not list_data_account:
             continue
@@ -304,38 +317,66 @@ except Exception as e:
 finally:
     arc_model.store(list_data)
 
-#
-# name = "mulingpeng"
-# password = conf.get("login", name)
-# login_html = arc_model.login(name, password)
-# if login_html.find('You are already logged into My ARC') < 0 and login_html.find('Account Settings :') < 0:
-#     logger.error('login error')
-#     sys.exit(0)
+try:
+    insert(list_data)
+except Exception as e:
+    logger.critical(e)
 
-# # -------------------go to IAR
-# iar_html = arc_model.iar()
-# if not iar_html:
-#     logger.error('iar error')
-#     sys.exit(0)
-# ped, action, arcNumber = arc_regex.iar(iar_html, False)
-# if not action:
-#     logger.error('regex iar error')
-#     arc_model.logout()
-#     sys.exit(0)
-#
-# listTransactions_html = arc_model.listTransactions(ped, action, arcNumber)
-# if not listTransactions_html:
-#     logger.error('listTransactions error')
-#     arc_model.iar_logout(ped, action, arcNumber)
-#     arc_model.logout()
-#     sys.exit(0)
-#
-# token, from_date, to_date = arc_regex.listTransactions(listTransactions_html)
-# if not token:
-#     logger.error('regex listTransactions error')
-#     arc_model.iar_logout(ped, action, arcNumber)
-#     arc_model.logout()
-#     sys.exit(0)
+# -----------------export excel
+file_name = "iar_update_commission"
+try:
+    arc_model.exportExcel(list_data, file_name)
+except Exception as e:
+    logger.critical(e)
+
+mail_smtp_server = conf.get("email", "smtp_server")
+mail_from_addr = conf.get("email", "from")
+mail_to_addr = conf.get("email", "to_update").split(';')
+mail_subject = conf.get("email", "subject") + " for accounting"
+try:
+    body = ''
+    # for i in list_data:
+    #     status, updated = arc_model.convertStatus(i)
+    #     body = body + '''<tr>
+    #         <td>%s</td>
+    #         <td>%s</td>
+    #         <td>%s</td>
+    #         <td>%s</td>
+    #         <td>%s</td>
+    #         <td>%s</td>
+    #         <td>%s</td>
+    #         <td>%s</td>
+    #         <td>%s</td>
+    #         <td>%s</td>
+    #     </tr>''' % (i['ArcNumber'], i['TicketNumber'],
+    #                 i['IssueDate'], i['Comm'], i['QCComm'], i['ArcCommUpdated'], i['TourCode'], i['QCTourCode'],
+    #                 i['ArcTourCodeUpdated'], updated)
+
+    # body = '''<table border=1>
+    # <thead>
+    #     <tr>
+    #         <th>ARC</th>
+    #         <th>TicketNumber</th>
+    #         <th>Date</th>
+    #         <th>TKCM</th>
+    #         <th>QCCM</th>
+    #         <th>ARCCM</th>
+    #         <th>TKTC</th>
+    #         <th>QCTC</th>
+    #         <th>ARCTC</th>
+    #         <th>Status</th>
+    #     </tr>
+    # </thead>
+    # <tbody>%s
+    # </tbody></table>''' % body
+    mail = arc.Email(smtp_server=mail_smtp_server)
+    mail.send(mail_from_addr, mail_to_addr, mail_subject, body, ['excel/' + file_name + '.xlsx'])
+    logger.info('email sent')
+except Exception as e:
+    logger.critical(e)
+
+logger.debug('--------------<<<END>>>--------------')
+
 
 # list_data=[]
 # v={}
@@ -355,86 +396,3 @@ finally:
 # v['ArcTourCodeUpdated']=''
 # v['Status']=0
 # list_data.append(v)
-
-# try:
-#     for data in list_data:
-#         if data['Status'] != 0 and data['Status'] != 3:
-#             continue
-#         # # print 'source'
-#         # # print data
-#         execute(data, action, token, from_date, to_date)
-#         # # print 'execute'
-#         # # print data
-#         if data['Status'] == 1 or data['Status'] == 3:
-#             check(data, action, token, from_date, to_date)
-#             # print 'check'
-#             # print data
-#             # time.sleep(3)
-# except Exception as e:
-#     print e
-#     logger.critical(e)
-# finally:
-#     arc_model.store(list_data)
-
-try:
-    insert(list_data)
-except Exception as e:
-    logger.critical(e)
-
-###-----------------export excel
-file_name = "iar_update_commission"
-try:
-    arc_model.exportExcel(list_data, file_name)
-except Exception as e:
-    logger.critical(e)
-
-mail_smtp_server = conf.get("email", "smtp_server")
-mail_from_addr = conf.get("email", "from")
-mail_to_addr = conf.get("email", "to_update").split(';')
-mail_subject = conf.get("email", "subject") + " for accounting"
-try:
-    body = ''
-    for i in list_data:
-        status, updated = arc_model.convertStatus(i)
-        body = body + '''<tr>
-            <td>%s</td>
-            <td>%s</td>
-            <td>%s</td>
-            <td>%s</td>
-            <td>%s</td>
-            <td>%s</td>
-            <td>%s</td>
-            <td>%s</td>
-            <td>%s</td>
-            <td>%s</td>
-        </tr>''' % (i['ArcNumber'], i['TicketNumber'],
-                    i['IssueDate'], i['Comm'], i['QCComm'], i['ArcCommUpdated'], i['TourCode'], i['QCTourCode'],
-                    i['ArcTourCodeUpdated'], updated)
-
-    # print body
-    body = '''<table border=1>
-    <thead>
-        <tr>
-            <th>ARC</th>
-            <th>TicketNumber</th>
-            <th>Date</th>
-            <th>TKCM</th>
-            <th>QCCM</th>
-            <th>ARCCM</th>
-            <th>TKTC</th>
-            <th>QCTC</th>
-            <th>ARCTC</th>
-            <th>Status</th>
-        </tr>
-    </thead>
-    <tbody>%s
-    </tbody></table>''' % body
-
-    mail = arc.Email(smtp_server=mail_smtp_server)
-    mail.send(mail_from_addr, mail_to_addr, mail_subject, body, ['excel/' + file_name + '.xlsx'])
-
-    logger.info('email sent')
-except Exception as e:
-    logger.critical(e)
-
-logger.debug('--------------<<<END>>>--------------')

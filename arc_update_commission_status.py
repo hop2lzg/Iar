@@ -164,7 +164,7 @@ def insert(datas):
         ids.append(data['Id'])
         data['QCComm'] = "" if data['QCComm'] is None else data['QCComm']
         data['ArcCommUpdated'] = "" if data['ArcCommUpdated'] is None else data['ArcCommUpdated']
-        data['QCTourCode'] = "" if data['QCTourCode'] is None else data['QCTourCode']
+        data['QCTourCode'] = "" if data['QCTourCode'] is None else data['QCTourCode'].upper()
         data['ArcTourCodeUpdated'] = "" if data['ArcTourCodeUpdated'] is None else data['ArcTourCodeUpdated']
         is_updated = 0
         if data['QCComm'] == data['ArcCommUpdated'] and data['QCTourCode'] == data['ArcTourCodeUpdated']:
@@ -278,7 +278,7 @@ def run(user_name, datas):
     password = conf.get("login", user_name)
     login_html = arc_model.login(user_name, password)
     if login_html.find('You are already logged into My ARC') < 0 and login_html.find('Account Settings :') < 0:
-        logger.error('login error')
+        logger.error('login error: '+user_name)
         return
     # -------------------go to IAR
     iar_html = arc_model.iar()

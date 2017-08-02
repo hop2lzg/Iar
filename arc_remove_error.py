@@ -17,7 +17,7 @@ def run(user_name, arc_numbers, ped, action):
     password = conf.get("login", user_name)
     login_html = arc_model.login(user_name, password)
     if login_html.find('You are already logged into My ARC') < 0 and login_html.find('Account Settings :') < 0:
-        logger.error('login error')
+        logger.error('login error: '+user_name)
         return
     # -------------------go to IAR
     iar_html = arc_model.iar()

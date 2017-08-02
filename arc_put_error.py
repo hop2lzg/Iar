@@ -72,16 +72,36 @@ select [SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumbe
 where Status not like '[NV]%'
 and IssueDate=@t
 and QCStatus=2
-and (TicketNumber not like '0447%' or TicketNumber not like '0457%' or TicketNumber not like '0477%' or TicketNumber not like '1347%' or TicketNumber not like '1397%' or TicketNumber not like '1477%' or TicketNumber not like '2307%' or TicketNumber not like '2697%' or TicketNumber not like '4627%' or TicketNumber not like '4697%' or TicketNumber not like '5447%' or TicketNumber not like '8377%' or TicketNumber not like '9577%')
+and (TicketNumber not like '04[457]7%' or TicketNumber not like '04[457]86%'
+or TicketNumber not like '13[49]7%' or TicketNumber not like '13[49]86%'
+or TicketNumber not like '1477%' or TicketNumber not like '14786%'
+or TicketNumber not like '2307%' or TicketNumber not like '23086%'
+or TicketNumber not like '2697%' or TicketNumber not like '26986%'
+or TicketNumber not like '46[29]7%' or TicketNumber not like '46[29]86%'
+or TicketNumber not like '5447%' or TicketNumber not like '54486%'
+or TicketNumber not like '8377%' or TicketNumber not like '83786%'
+or TicketNumber not like '9577%' or TicketNumber not like '95786%')
 and Id not in (
-select Id from Ticket
+select t.Id from Ticket t
+left join IarUpdate iu
+on t.Id=iu.TicketId
 where Status not like '[NV]%'
-and FareType<>'BULK'
+and Status not in ('ER','RR','RX','RD')
+and FareType not in ('BULK','SR')
 and IssueDate=@t
-and Comm>=0
-and Comm<QCComm-5
-and (ISNULL(TourCode,'')='' or ((TicketNumber like '00[16]7%' or TicketNumber like '0147%' or TicketNumber like '1767%' or TicketNumber like '6077%' or TicketNumber like '0727%' or TicketNumber like '0657%' or TicketNumber like '1577%' or TicketNumber like '2357%' or TicketNumber like '5557%' or TicketNumber like '1607%') and TourCode<>''))
-)
+and t.Comm>=0
+and t.Comm<QCComm-5
+and (ISNULL(t.TourCode,'')=''
+or ((TicketNumber like '00[16]7%' or TicketNumber like '00[16]86%'
+or TicketNumber like '0147%' or TicketNumber like '01486%'
+or TicketNumber like '1767%' or TicketNumber like '17686%'
+or TicketNumber like '6077%' or TicketNumber like '60786%'
+or TicketNumber like '0727%' or TicketNumber like '07286%'
+or TicketNumber like '0657%' or TicketNumber like '06586%'
+or TicketNumber like '1577%' or TicketNumber like '15786%'
+or TicketNumber like '2357%' or TicketNumber like '23586%'
+or TicketNumber like '5557%' or TicketNumber like '55586%'
+or TicketNumber like '1607%' or TicketNumber like '16086%') and t.TourCode<>'')))
 order by ArcNumber,Ticket
 ''')
 
@@ -109,7 +129,7 @@ def run(user_name, datas):
     password = conf.get("login", user_name)
     login_html = arc_model.login(user_name, password)
     if login_html.find('You are already logged into My ARC') < 0 and login_html.find('Account Settings :') < 0:
-        logger.error('login error')
+        logger.error('login error: '+user_name)
         return
 
     # -------------------go to IAR

@@ -12,111 +12,100 @@ class MyThread(threading.Thread):
         self.is_this_week = is_this_week
 
     def run(self):
-        print "Starting " + self.name + '\n'
-
-        execute(self.name, self.is_this_week)
-
-
-conf = ConfigParser.ConfigParser()
-conf.read('../arc_update.conf')
-# print conf.sections()
-# print conf.options("login") 
-# pwd = conf.get("login","muling-yww")
-
-arc_model = arc.ArcModel("arc download")
-arc_regex = arc.Regex()
-logger = arc_model.logger
+        print "runnuing: " + self.name + '\n'
+        thread_lock.acquire()
+        try:
+            execute(self.name, self.is_this_week)
+        except Exception as ex:
+            logger.fatal(ex)
+        finally:
+            thread_lock.release()
 
 
 def execute(name, is_this_week):
+    print "start name:%s" % name
     password = conf.get("login", name)
-    arc_model.login(name, password)
+    login_html = arc_model.login(name, password)
+    if login_html.find('You are already logged into My ARC') < 0 and login_html.find('Account Settings :') < 0:
+        logger.error('login error: '+name)
+        return
+
     iar_html = arc_model.iar()
+    if not iar_html:
+        logger.error('iar error: '+name)
+        return
+
     ped, action, arcNumber = arc_regex.iar(iar_html, is_this_week)
-    # print ped, action, arcNumber
     if not action:
+        logger.error('regex iar error: '+name)
         arc_model.logout()
         return
+
     try:
         if name == 'mulingpeng':
             conf_name = 'all'
         else:
             conf_name = name[-3:]
+
         arc_numbers = conf.get("arc", conf_name).split(',')
         if arcNumber in arc_numbers:
-            arc_numbers.remove(arcNumber)
+            arc_number_index = arc_numbers.index(arcNumber)
+            arc_numbers[arc_number_index] = arc_numbers[0]
+            arc_numbers[0] = arcNumber
+        else:
+            arc_numbers.insert(0, arcNumber)
+
         for arc_number in arc_numbers:
-            print 'Downloading ' + arc_number
-            listTransactions_html = arc_model.listTransactions(ped, action, arc_number)
-            token, from_date, to_date = arc_regex.listTransactions(listTransactions_html)
+            print "downloading arc:%s name:%s" % (arc_number, name)
+            list_transactions_html = arc_model.listTransactions(ped, action, arc_number)
+            token, from_date, to_date = arc_regex.listTransactions(list_transactions_html)
             if not token:
                 continue
             arc_model.get_csv(name, is_this_week, ped, action, arc_number, token, from_date, to_date)
             time.sleep(3)
     except Exception, ex:
-        print ex
+        # print ex
         logger.critical(ex)
     finally:
         arc_model.iar_logout(ped, action, arcNumber)
         arc_model.logout()
+    print "over name:%s" % name
 
 
 def thread_set(is_this_week):
     threads = []
+    # thread_lock = threading.Lock()
     for option in conf.options("login"):
+        # if option != "muling-aca":
+        #     continue
+
         thread = MyThread(option, is_this_week)
         thread.start()
         threads.append(thread)
-    # thread.start_new_thread(execute,(is_this_week,option))
+
     for t in threads:
         t.join()
 
 
+conf = ConfigParser.ConfigParser()
+conf.read('../iar_update.conf')
+arc_model = arc.ArcModel("arc download")
+arc_regex = arc.Regex()
+logger = arc_model.logger
+logger.debug("<<<<<<<<<<<<<<<<<<<<<START>>>>>>>>>>>>>>>>>>>>>")
+thread_lock = threading.Lock()
 date_time = datetime.datetime.now()
 date_week = date_time.weekday()
+if date_week != 0:
+    print 'this week'
+    thread_set(True)
 
-# if date_week!=0:
-# 	print 'this week'
-# 	thread_set(True)
-# if date_week==0 or date_week==1 or date_week==2:
-# 	print 'last week'
-# 	time.sleep(1*60*30)
-# 	thread_set(False)
+if date_week == 0 or date_week == 1 or date_week == 2:
+    print 'last week'
+    timer_sleep = 0
+    if date_week == 1 or date_week == 2:
+        timer_sleep = 1*60*20
+    timer = threading.Timer(timer_sleep, thread_set, [False])
+    timer.start()
 
-# def execute(is_this_week):
-# 	for option in conf.options("login"):
-# 		name=option
-# 		password=conf.get("login",option)
-
-# 		arc_model.login(name,password)
-# 		iar_html=arc_model.iar()
-
-# 		ped,action,arcNumber=arc_regex.iar(iar_html)
-# 		if not action:
-# 			arc_model.logout()
-# 			continue
-
-# 		try:
-# 			arc_numbers=['05500445','05507073','05513826','05520502','05545783','05563983','05613495','05635814','05639255','05649125','05765476','06542082','09502964','10522374','11521436','14537891','14646015','17581351','18503306','21524952','22505851','23534803','24514571','26503945','31533003','33508333','33519032','33547544','33583454','33589544','34517840','36537502','37531152','39654591','45532885','45666574','45668574','46543291','49587775','50622154']
-# 			if name=='muling-yww' or name=='muling-tvo':
-# 				arc_numbers=[]
-# 			elif name=='muling-aca':
-# 				arc_numbers=['05617986']
-
-# 			arc_numbers[0:0]=arcNumber
-
-# 			for arc_number in arc_numbers:
-# 				print 'Downloading '+arc_number
-# 				listTransactions_html=arc_model.listTransactions(ped,action,arc_number)
-# 				token,from_date,to_date=arc_regex.listTransactions(listTransactions_html)
-# 				if not token:
-# 					continue
-# 				arc_model.get_csv(name,is_this_week,ped,action,arc_number,token,from_date,to_date)
-# 				time.sleep(3)
-
-# 		except Exception,ex:
-# 			logger.critical(ex)
-# 			print ex
-# 		finally:
-# 			arc_model.iar_logout(ped,action,arcNumber)
-# 			arc_model.logout()
+logger.debug("<<<<<<<<<<<<<<<<<<<<<END>>>>>>>>>>>>>>>>>>>>>")
