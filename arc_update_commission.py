@@ -12,29 +12,30 @@ def execute(post, action, token, from_date, to_date):
     tour_code = ""
     if post['TourCode']:
         tour_code = post['TourCode']
+
     qc_tour_code = ""
     if post['QCTourCode']:
         qc_tour_code = post['QCTourCode']
 
-    is_check = False
-
+    is_check_payment = False
     if post['Status'] == 3:
-        is_check = True
+        is_check_payment = True
 
     date_time = datetime.datetime.strptime(date, '%Y-%m-%d')
     ped = (date_time + datetime.timedelta(days=(6 - date_time.weekday()))).strftime('%d%b%y').upper()
-
     logger.info("UPDATING PED: " + ped + " arc: " + arcNumber + " tkt: " + documentNumber)
-
     search_html = arc_model.search(ped, action, arcNumber, token, from_date, to_date, documentNumber)
     if not search_html:
         return
+
     seqNum, documentNumber = arc_regex.search(search_html)
     if not seqNum:
         return
+
     modify_html = arc_model.modifyTran(seqNum, documentNumber)
     if not modify_html:
         return
+
     voided_index = modify_html.find('Document is being displayed as view only')
     if voided_index >= 0:
         post['Status'] = 2
@@ -43,10 +44,13 @@ def execute(post, action, token, from_date, to_date):
     token, maskedFC, arc_commission, waiverCode, certificates = arc_regex.modifyTran(modify_html)
     if not token:
         return
-    post['ArcComm'] = arc_commission
 
-    financialDetails_html = arc_model.financialDetails(token, is_check, commission, waiverCode, maskedFC, seqNum,
-                                                       documentNumber, tour_code, qc_tour_code, certificates)
+    post['ArcComm'] = arc_commission
+    financialDetails_html = arc_model.financialDetails(token, is_check_payment, commission, waiverCode, maskedFC,
+                                                       seqNum, documentNumber, tour_code, qc_tour_code, certificates,
+                                                       "MJ", agent_codes, is_check_update=False)
+    # financialDetails_html = arc_model.financialDetails(token, is_check_payment, commission, waiverCode, maskedFC, seqNum,
+    #                                                    documentNumber, tour_code, qc_tour_code, certificates)
     if not financialDetails_html:
         return
 
@@ -66,6 +70,7 @@ def execute(post, action, token, from_date, to_date):
         if not itineraryEndorsements_html:
             return
         token = arc_regex.itineraryEndorsements(itineraryEndorsements_html)
+
     if token:
         transactionConfirmation_html = arc_model.transactionConfirmation(token)
         if transactionConfirmation_html:
@@ -73,17 +78,6 @@ def execute(post, action, token, from_date, to_date):
                 post['Status'] = 1
             else:
                 logger.warning('update may be error')
-
-                # updated_ticket_number,updated_commission=RegexTransactionConfirmation(transactionConfirmation_html)
-
-                # # logger.info("documentNumber:"+updated_ticket_number+" commission:"+updated_commission)
-                # # print documentNumber,updated_ticket_number,type(documentNumber),type(updated_ticket_number)
-                # # print commission,updated_commission,type(commission),type(updated_commission)
-                # if(documentNumber==updated_ticket_number and str(commission)==updated_commission):
-                # 	# Write(documentNumber)
-                # 	post['Status']=1
-                # else:
-                # 	print 'no write'
 
 
 def check(post, action, token, from_date, to_date):
@@ -98,10 +92,9 @@ def check(post, action, token, from_date, to_date):
     if post['QCTourCode']:
         qc_tour_code = post['QCTourCode']
 
-    is_check = False
-
+    is_check_payment = False
     if post['Status'] == 3:
-        is_check = True
+        is_check_payment = True
 
     date_time = datetime.datetime.strptime(date, '%Y-%m-%d')
     ped = (date_time + datetime.timedelta(days=(6 - date_time.weekday()))).strftime('%d%b%y').upper()
@@ -126,9 +119,11 @@ def check(post, action, token, from_date, to_date):
     if not token:
         return
     post['ArcCommUpdated'] = arc_commission
-
-    financialDetails_html = arc_model.financialDetails(token, is_check, commission, waiverCode, maskedFC, seqNum,
-                                                       documentNumber, tour_code, qc_tour_code, certificates, True)
+    financialDetails_html = arc_model.financialDetails(token, is_check_payment, commission, waiverCode, maskedFC,
+                                                       seqNum, documentNumber, tour_code, qc_tour_code, certificates,
+                                                       "MJ", agent_codes, is_check_update=True)
+    # financialDetails_html = arc_model.financialDetails(token, is_check, commission, waiverCode, maskedFC, seqNum,
+    #                                                    documentNumber, tour_code, qc_tour_code, certificates, True)
     if not financialDetails_html:
         return
 
@@ -234,6 +229,7 @@ logger.debug('select sql')
 
 conf = ConfigParser.ConfigParser()
 conf.read('../iar_update.conf')
+agent_codes = conf.get("certificate", "agentCodes").split(',')
 sql_server = conf.get("sql", "server")
 sql_database = conf.get("sql", "database")
 sql_user = conf.get("sql", "user")
@@ -335,42 +331,46 @@ mail_to_addr = conf.get("email", "to_update").split(';')
 mail_subject = conf.get("email", "subject") + " for accounting"
 try:
     body = ''
-    # for i in list_data:
-    #     status, updated = arc_model.convertStatus(i)
-    #     body = body + '''<tr>
-    #         <td>%s</td>
-    #         <td>%s</td>
-    #         <td>%s</td>
-    #         <td>%s</td>
-    #         <td>%s</td>
-    #         <td>%s</td>
-    #         <td>%s</td>
-    #         <td>%s</td>
-    #         <td>%s</td>
-    #         <td>%s</td>
-    #     </tr>''' % (i['ArcNumber'], i['TicketNumber'],
-    #                 i['IssueDate'], i['Comm'], i['QCComm'], i['ArcCommUpdated'], i['TourCode'], i['QCTourCode'],
-    #                 i['ArcTourCodeUpdated'], updated)
+    for i in list_data:
+        status, updated = arc_model.convertStatus(i)
+        if updated == "Success" or updated == "Void":
+            continue
 
-    # body = '''<table border=1>
-    # <thead>
-    #     <tr>
-    #         <th>ARC</th>
-    #         <th>TicketNumber</th>
-    #         <th>Date</th>
-    #         <th>TKCM</th>
-    #         <th>QCCM</th>
-    #         <th>ARCCM</th>
-    #         <th>TKTC</th>
-    #         <th>QCTC</th>
-    #         <th>ARCTC</th>
-    #         <th>Status</th>
-    #     </tr>
-    # </thead>
-    # <tbody>%s
-    # </tbody></table>''' % body
+        body = body + '''<tr>
+            <td>%s</td>
+            <td>%s</td>
+            <td>%s</td>
+            <td>%s</td>
+            <td>%s</td>
+            <td>%s</td>
+            <td>%s</td>
+            <td>%s</td>
+            <td>%s</td>
+            <td>%s</td>
+        </tr>''' % (i['ArcNumber'], i['TicketNumber'],
+                    i['IssueDate'], i['Comm'], i['QCComm'], i['ArcCommUpdated'], i['TourCode'], i['QCTourCode'],
+                    i['ArcTourCodeUpdated'], updated)
+
+    body = '''<table border=1>
+    <thead>
+        <tr>
+            <th>ARC</th>
+            <th>TicketNumber</th>
+            <th>Date</th>
+            <th>TKCM</th>
+            <th>QCCM</th>
+            <th>ARCCM</th>
+            <th>TKTC</th>
+            <th>QCTC</th>
+            <th>ARCTC</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>%s
+    </tbody></table>''' % body
     mail = arc.Email(smtp_server=mail_smtp_server)
-    mail.send(mail_from_addr, mail_to_addr, mail_subject, body, ['excel/' + file_name + '.xlsx'])
+    # mail.send(mail_from_addr, mail_to_addr, mail_subject, body, ['excel/' + file_name + '.xlsx'])
+    mail.send(mail_from_addr, mail_to_addr, mail_subject, body)
     logger.info('email sent')
 except Exception as e:
     logger.critical(e)

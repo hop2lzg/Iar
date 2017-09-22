@@ -10,7 +10,7 @@ logger = arc_model.logger
 logger.debug('--------------<<<START>>>--------------')
 conf = ConfigParser.ConfigParser()
 conf.read('../iar_update.conf')
-
+agent_codes = conf.get("certificate", "agentCodes").split(',')
 
 def run(user_name, arc_numbers, ped, action):
     # ----------------------login
@@ -24,23 +24,6 @@ def run(user_name, arc_numbers, ped, action):
     if not iar_html:
         logger.error('iar error')
         return
-    # ped, action, arcNumber = arc_regex.iar(iar_html, False)
-    # if not action:
-    #     logger.error('regex iar error')
-    #     arc_model.logout()
-    #     return
-    # listTransactions_html = arc_model.listTransactions(ped, action, arcNumber)
-    # if not listTransactions_html:
-    #     logger.error('listTransactions error')
-    #     arc_model.iar_logout(ped, action, arcNumber)
-    #     arc_model.logout()
-    #     return
-    # token, from_date, to_date = arc_regex.listTransactions(listTransactions_html)
-    # if not token:
-    #     logger.error('regex listTransactions error')
-    #     arc_model.iar_logout(ped, action, arcNumber)
-    #     arc_model.logout()
-    #     return
 
     last_arc_number = ""
     for arc_number in arc_numbers:
@@ -65,18 +48,18 @@ def execute(data):
         data['status'] = 2
         return
 
-    token, maskedFC, regex_commission, waiverCode, list_certificates = arc_regex.modifyTran(modify_html)
-    logger.debug("regex commission:" + regex_commission)
+    token, maskedFC, commission, waiverCode, certificates = arc_regex.modifyTran(modify_html)
+    logger.debug("regex commission:" + commission)
     if not token or not maskedFC:
         return
 
-    financialDetails_html = arc_model.financialDetailsRemoveError(token, regex_commission, waiverCode, maskedFC, seqNum,
-                                                                  documentNumber, list_certificates)
+    financialDetails_html = arc_model.financialDetails(token, False, commission, waiverCode, maskedFC,
+                                                       seqNum, documentNumber, "", "", certificates, "", agent_codes,
+                                                       is_et_button=True)
     if not financialDetails_html:
         return
 
     token = arc_regex.itineraryEndorsements(financialDetails_html)
-
     if token:
         transactionConfirmation_html = arc_model.transactionConfirmation(token)
         if transactionConfirmation_html:
@@ -125,7 +108,7 @@ def remove(today, weekday, ped, action, arc_number):
         v['ticketNumber'] = search[2] + search[0]
         v['seqNum'] = search[1]
         v['documentNumber'] = search[0]
-        v['date'] = search[3]
+        v['date'] = search[4]
         v['arcNumber'] = arc_number
         v['status'] = 0
 

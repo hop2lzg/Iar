@@ -8,9 +8,10 @@ def execute(post, action, token, from_date, to_date):
     arcNumber = post['ArcNumber']
     documentNumber = post['Ticket']
     date = post['IssueDate']
-    is_check = False
+    error_code = post['ErrorCode']
+    is_check_payment = False
     if post['Status'] == 3:
-        is_check = True
+        is_check_payment = True
 
     date_time = datetime.datetime.strptime(date, '%Y-%m-%d')
     ped = (date_time+datetime.timedelta(days=(6-date_time.weekday()))).strftime('%d%b%y').upper()
@@ -26,16 +27,20 @@ def execute(post, action, token, from_date, to_date):
     modify_html = arc_model.modifyTran(seqNum, documentNumber)
     if not modify_html:
         return
+
     voided_index = modify_html.find('Document is being displayed as view only')
     if voided_index >= 0:
         post['Status'] = 2
         return
+
     token, maskedFC, arc_commission, waiverCode, certificates = arc_regex.modifyTran(modify_html)
     logger.debug("regex commission:"+arc_commission)
     if not token:
         return
 
-    financialDetails_html = arc_model.financialDetailsPutError(token, is_check, arc_commission, waiverCode, maskedFC, seqNum, documentNumber, certificates)
+    financialDetails_html = arc_model.financialDetails(token, is_check_payment, arc_commission, waiverCode, maskedFC,
+                                                       seqNum, documentNumber, "", "", certificates, error_code,
+                                                       agent_codes, is_et_button=True)
     if not financialDetails_html:
         return
 
@@ -56,7 +61,7 @@ logger = arc_model.logger
 logger.debug('--------------<<<START>>>--------------')
 conf = ConfigParser.ConfigParser()
 conf.read('../iar_update.conf')
-
+agent_codes = conf.get("certificate", "agentCodes").split(',')
 
 # #------------------------------------------sql-------------------------------------
 logger.debug('select sql')
@@ -68,7 +73,7 @@ sql_pwd = conf.get("sql", "pwd")
 ms = arc.MSSQL(server=sql_server, db=sql_database, user=sql_user, pwd=sql_pwd)
 sql = ('''declare @t date
 set @t=DATEADD(DAY,-1,GETDATE())
-select [SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType from Ticket
+select Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,'M1' ErrorCode from Ticket
 where Status not like '[NV]%'
 and IssueDate=@t
 and QCStatus=2
@@ -102,6 +107,12 @@ or TicketNumber like '1577%' or TicketNumber like '15786%'
 or TicketNumber like '2357%' or TicketNumber like '23586%'
 or TicketNumber like '5557%' or TicketNumber like '55586%'
 or TicketNumber like '1607%' or TicketNumber like '16086%') and t.TourCode<>'')))
+union
+select t.Id,t.[SID],t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,PaymentType,'DUP' ErrorCode from Ticket t
+right join TicketDuplicate td
+on t.id=td.id
+where td.insertDateTime>=dateadd(day,-7,getdate())
+and td.isARCUpdated=0
 order by ArcNumber,Ticket
 ''')
 
@@ -114,13 +125,16 @@ if not list_data:
     list_data = []
     for row in rows:
         v = {}
+        v['Id'] = row.Id
         v['TicketNumber'] = row.TicketNumber
         v['Ticket'] = row.Ticket
         v['IssueDate'] = str(row.IssueDate)
         v['ArcNumber'] = row.ArcNumber
         v['Status'] = 0
+        v['ErrorCode'] = row.ErrorCode
         if row.PaymentType != 'C':
             v['Status'] = 3
+
         list_data.append(v)
 
 
@@ -169,6 +183,20 @@ def run(user_name, datas):
     arc_model.logout()
 
 
+def update(datas):
+    ids = []
+    for data in datas:
+        if data['ErrorCode'] == 'DUP' and data['Status'] != 0 and data['Id'] not in ids:
+            ids.append("'" + data['Id'] + "'")
+
+    if ids:
+        update_sql = "update TicketDuplicate set isARCUpdated=1 where id in (%s)" % ','.join(ids)
+        logger.debug(update_sql)
+        if ms.ExecNonQuery(update_sql) > 0:
+            logger.info('update sql success')
+        else:
+            logger.error('update sql error')
+
 try:
     section = "arc"
     for option in conf.options(section):
@@ -187,6 +215,11 @@ except Exception as e:
     logger.critical(e)
 finally:
     arc_model.store(list_data)
+
+try:
+    update(list_data)
+except Exception as e:
+    logger.critical(e)
 
 # ##---------------------------send email
 mail_smtp_server = conf.get("email", "smtp_server")

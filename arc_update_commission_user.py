@@ -16,10 +16,10 @@ def execute(post, action, token, from_date, to_date):
     if post['QCTourCode']:
         qc_tour_code = post['QCTourCode']
 
-    is_check = False
+    is_check_payment = False
 
     if post['Status'] == 3:
-        is_check = True
+        is_check_payment = True
 
     date_time = datetime.datetime.strptime(date, '%Y-%m-%d')
     ped = (date_time + datetime.timedelta(days=(6 - date_time.weekday()))).strftime('%d%b%y').upper()
@@ -43,10 +43,14 @@ def execute(post, action, token, from_date, to_date):
     token, maskedFC, arc_commission, waiverCode, certificates = arc_regex.modifyTran(modify_html)
     if not token:
         return
-    post['ArcComm'] = arc_commission
 
-    financialDetails_html = arc_model.financialDetails(token, is_check, commission, waiverCode, maskedFC, seqNum,
-                                                       documentNumber, tour_code, qc_tour_code, certificates)
+    post['ArcComm'] = arc_commission
+    financialDetails_html = arc_model.financialDetails(token, is_check_payment, commission, waiverCode, maskedFC,
+                                                       seqNum, documentNumber, tour_code, qc_tour_code, certificates,
+                                                       "MJ", agent_codes, is_check_update=False)
+    # financialDetails_html = arc_model.financialDetails(token, is_check, commission, waiverCode, maskedFC, seqNum,
+    #                                                    documentNumber, tour_code, qc_tour_code, certificates)
+
     if not financialDetails_html:
         return
 
@@ -74,17 +78,6 @@ def execute(post, action, token, from_date, to_date):
             else:
                 logger.warning('update may be error')
 
-                # updated_ticket_number,updated_commission=RegexTransactionConfirmation(transactionConfirmation_html)
-
-                # # logger.info("documentNumber:"+updated_ticket_number+" commission:"+updated_commission)
-                # # print documentNumber,updated_ticket_number,type(documentNumber),type(updated_ticket_number)
-                # # print commission,updated_commission,type(commission),type(updated_commission)
-                # if(documentNumber==updated_ticket_number and str(commission)==updated_commission):
-                # 	# Write(documentNumber)
-                # 	post['Status']=1
-                # else:
-                # 	print 'no write'
-
 
 def check(post, action, token, from_date, to_date):
     arcNumber = post['ArcNumber']
@@ -98,10 +91,10 @@ def check(post, action, token, from_date, to_date):
     if post['QCTourCode']:
         qc_tour_code = post['QCTourCode']
 
-    is_check = False
+    is_check_payment = False
 
     if post['Status'] == 3:
-        is_check = True
+        is_check_payment = True
 
     date_time = datetime.datetime.strptime(date, '%Y-%m-%d')
     ped = (date_time + datetime.timedelta(days=(6 - date_time.weekday()))).strftime('%d%b%y').upper()
@@ -126,9 +119,11 @@ def check(post, action, token, from_date, to_date):
     if not token:
         return
     post['ArcCommUpdated'] = arc_commission
-
-    financialDetails_html = arc_model.financialDetails(token, is_check, commission, waiverCode, maskedFC, seqNum,
-                                                       documentNumber, tour_code, qc_tour_code, certificates, True)
+    financialDetails_html = arc_model.financialDetails(token, is_check_payment, commission, waiverCode, maskedFC,
+                                                       seqNum, documentNumber, tour_code, qc_tour_code, certificates,
+                                                       "MJ", agent_codes, is_check_update=True)
+    # financialDetails_html = arc_model.financialDetails(token, is_check, commission, waiverCode, maskedFC, seqNum,
+    #                                                    documentNumber, tour_code, qc_tour_code, certificates, True)
     if not financialDetails_html:
         return
 
@@ -198,6 +193,7 @@ logger.debug('select sql')
 
 conf = ConfigParser.ConfigParser()
 conf.read('../iar_update.conf')
+agent_codes = conf.get("certificate", "agentCodes").split(',')
 sql_server = conf.get("sql", "server")
 sql_database = conf.get("sql", "database")
 sql_user = conf.get("sql", "user")
@@ -230,7 +226,8 @@ t.Comm,t.TourCode,qc.AGComm UpdatedComm,qc.AGTourCode UpdatedTourCode from Ticke
 left join TicketQC qc
 on t.Id=qc.TicketId
 where qc.ARCupdated=0
-and t.QCStatus=2 and qc.AGStatus=3
+and t.QCStatus=2 
+and qc.AGStatus=3
 and ((t.Comm<>qc.AGComm) or (t.TourCode<>qc.AGTourCode))
 and qc.OPStatus<>2
 and (qc.OPUser='GW' or OPLastUser='GW')
