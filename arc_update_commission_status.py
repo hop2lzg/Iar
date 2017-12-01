@@ -5,13 +5,18 @@ import datetime
 
 
 def convert_to_float(s):
+    is_exception = False
     f = 0
     try:
+        if s == "":
+            s = "0"
+
         f = float(s)
     except Exception as ex:
         logger.warn(ex)
+        is_exception = True
 
-    return f
+    return is_exception, f
 
 
 def run(user_name, datas):
@@ -50,17 +55,13 @@ def run(user_name, datas):
 
     try:
         for data in datas:
-            # print data
             if data['Status'] != 0 and data['Status'] != 3:
                 continue
             execute(data, action, token, from_date, to_date)
-            if data['Status'] == 1:
+            if data['Status'] == 1 or data['Status'] == 3 or data['Status'] == 4:
                 check(data, action, token, from_date, to_date)
     except Exception as ex:
-        # print e
         logger.critical(ex)
-    # finally:
-    # 	arc_model.store(list_data_sql)
 
     arc_model.iar_logout(ped, action, arcNumber)
     arc_model.logout()
@@ -98,10 +99,17 @@ def execute(post, action, token, from_date, to_date):
     if not modify_html:
         return
 
-    voided_index = modify_html.find('Document is being displayed as view only')
-    if voided_index >= 0:
+    is_void_pass = arc_regex.check_status(modify_html)
+    if is_void_pass == 2:
         post['Status'] = 2
         return
+    elif is_void_pass == 1:
+        post['Status'] = 4
+        return
+        # voided_index = modify_html.find('Document is being displayed as view only')
+    # if voided_index >= 0:
+    #     post['Status'] = 2
+    #     return
 
     token, maskedFC, arc_commission, waiverCode, certificates = arc_regex.modifyTran(modify_html)
     if not token:
@@ -111,12 +119,13 @@ def execute(post, action, token, from_date, to_date):
     is_et_button = False
     agent_code = "MJ"
     logger.info("ARC commission: %s  updating commission: %s" % (arc_commission, commission))
-    arc_commission_float = convert_to_float(arc_commission)
-    commission_float = convert_to_float(commission)
-    if post['OPUser'] != "GW" and post['updatedByRole'] != "AG" and arc_commission_float > commission_float:
+    arc_commission_is_exception, arc_commission_float = convert_to_float(arc_commission)
+    commission_is_exception, commission_float = convert_to_float(commission)
+    if arc_commission_is_exception or commission_is_exception or (post['OPUser'] != "GW" and post['updatedByRole'] != "AG" and arc_commission_float > commission_float):
         agent_code = "M2"
         is_et_button = True
         commission = arc_commission
+        post['isPutError'] = True
 
     financialDetails_html = arc_model.financialDetails(token, is_check_payment, commission, waiverCode, maskedFC, seqNum,
                                                        documentNumber, tour_code, qc_tour_code, certificates, agent_code,
@@ -186,10 +195,16 @@ def check(post, action, token, from_date, to_date):
     if not modify_html:
         return
 
-    voided_index = modify_html.find('Document is being displayed as view only')
-    if voided_index >= 0:
+    is_void_pass = arc_regex.check_status(modify_html)
+    if is_void_pass == 2:
         post['Status'] = 2
         return
+    elif is_void_pass == 1:
+        post['Status'] = 4
+    # voided_index = modify_html.find('Document is being displayed as view only')
+    # if voided_index >= 0:
+    #     post['Status'] = 2
+    #     return
 
     token, maskedFC, arc_commission, waiverCode, certificates = arc_regex.modifyTran(modify_html)
     if not token:
@@ -198,11 +213,14 @@ def check(post, action, token, from_date, to_date):
     post['ArcCommUpdated'] = arc_commission
     agent_code = "MJ"
     logger.info("ARC commission: %s  updating commission: %s" % (arc_commission, commission))
-    arc_commission_float = convert_to_float(arc_commission)
-    commission_float = convert_to_float(commission)
-    if arc_commission_float > commission_float:
-        agent_code = "M2"
-        post['ArcCommUpdated'] = commission
+    # arc_commission_float = convert_to_float(arc_commission)
+    # commission_float = convert_to_float(commission)
+    if post['isPutError']:
+        logger.debug("put error")
+        if "M2" in certificates:
+            post['hasPutError'] = True
+        post['ArcTourCodeUpdated'] = post['ArcTourCode']
+        return
 
     financialDetails_html = arc_model.financialDetails(token, is_check_payment, arc_commission, waiverCode, maskedFC,
                                                        seqNum, documentNumber, tour_code, qc_tour_code, certificates,
@@ -225,6 +243,7 @@ def update(datas):
                 ids.append("'" + data['QcId'] + "'")
     if ids:
         update_sql = "update TicketQC set ARCupdated=1 where Id in (%s)" % ','.join(ids)
+        logger.debug(update_sql)
         if ms.ExecNonQuery(update_sql) > 0:
             logger.info('update sql success')
         else:
@@ -248,17 +267,22 @@ def insert(datas):
         is_updated = 0
         if data['QCComm'] == data['ArcCommUpdated'] and data['QCTourCode'] == data['ArcTourCodeUpdated']:
             is_updated = 1
+
         comm = None
         try:
             comm = float(data['ArcCommUpdated'])
         except ValueError:
             comm = "null"
+
         if not data['ArcId']:
-            insert_sql = insert_sql + '''insert into IarUpdate(Id,Commission,TourCode,TicketDesignator,IsUpdated,TicketId) values (newid(),%s,'%s','%s',%d,'%s');''' % (
+            insert_sql = insert_sql + '''insert into IarUpdate(Id,Commission,TourCode,TicketDesignator,IsUpdated,TicketId,channel) values (newid(),%s,'%s','%s',%d,'%s',2);''' % (
                 comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, data['Id'])
         else:
-            insert_sql = insert_sql + '''update IarUpdate set Commission=%s,TourCode='%s',TicketDesignator='%s',IsUpdated=%d where Id='%s';''' % (
-                comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, data['ArcId'])
+            run_time = ""
+            if data['Status'] != 0:
+                run_time = ",runTimes=ISNULL(runTimes,0)+1"
+            insert_sql = insert_sql + '''update IarUpdate set Commission=%s,TourCode='%s',TicketDesignator='%s',IsUpdated=%d,channel=2,updateDateTime=GETDATE()%s where Id='%s';''' % (
+                comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, run_time, data['ArcId'])
 
     logger.info(insert_sql)
     rowcount = ms.ExecNonQuery(insert_sql)
@@ -266,64 +290,6 @@ def insert(datas):
         logger.info('insert success')
     else:
         logger.error('insert error')
-
-
-# def sample(post, action, token, from_date, to_date):
-#     arcNumber = post['ArcNumber']
-#     documentNumber = post['Ticket']
-#     date = post['IssueDate']
-#     commission = post['QCComm']
-#     tour_code = ""
-#     if post['TourCode']:
-#         tour_code = post['TourCode']
-#
-#     qc_tour_code = ""
-#     if post['QCTourCode']:
-#         qc_tour_code = post['QCTourCode']
-#
-#     is_check_payment = False
-#     if post['Status'] == 3:
-#         is_check_payment = True
-#
-#     date_time = datetime.datetime.strptime(date, '%Y-%m-%d')
-#     ped = (date_time + datetime.timedelta(days=(6 - date_time.weekday()))).strftime('%d%b%y').upper()
-#     logger.info("UPDATING PED: " + ped + " arc: " + arcNumber + " tkt: " + documentNumber)
-#     search_html = arc_model.search(ped, action, arcNumber, token, from_date, to_date, documentNumber)
-#     if not search_html:
-#         return
-#
-#     seqNum, documentNumber = arc_regex.search(search_html)
-#     if not seqNum:
-#         return
-#
-#     modify_html = arc_model.modifyTran(seqNum, documentNumber)
-#     if not modify_html:
-#         return
-#
-#     voided_index = modify_html.find('Document is being displayed as view only')
-#     if voided_index >= 0:
-#         post['Status'] = 2
-#         return
-#
-#     token, maskedFC, arc_commission, waiverCode, certificates = arc_regex.modifyTran(modify_html)
-#     if not token:
-#         return
-#
-#     post['ArcComm'] = arc_commission
-#     is_et_button = False
-#     agent_code = "MJ"
-#     if float(arc_commission) > float(commission):
-#         agent_code = "M2"
-#         is_et_button = True
-#         commission = arc_commission
-#
-#     financialDetails_html = arc_model.financialDetails(token, is_check_payment, commission, waiverCode, maskedFC,
-#                                                        seqNum,
-#                                                        documentNumber, tour_code, qc_tour_code, certificates,
-#                                                        agent_code,
-#                                                        agent_codes, is_et_button, is_check_update=False)
-#     if not financialDetails_html:
-#         return
 
 
 arc_model = arc.ArcModel("arc update commission by status")
@@ -345,7 +311,6 @@ ms = arc.MSSQL(server=sql_server, db=sql_database, user=sql_user, pwd=sql_pwd)
 sql = ('''
 declare @t date
 set @t=dateadd(day,-7,getdate())
-select aa.*,iu.Id IarId from (
 --select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
 --t.Comm,t.TourCode,t.QCComm UpdatedComm,t.QCTourCode UpdatedTourCode from Ticket t
 --left join TicketQC qc
@@ -356,28 +321,30 @@ select aa.*,iu.Id IarId from (
 --union
 select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
 t.Comm,t.TourCode,qc.AGComm UpdatedComm,qc.AGTourCode UpdatedTourCode,qc.OPUser,qc.OPLastUser,
-'AG' updatedByRole from Ticket t
+'AG' updatedByRole,iar.Id IarId from Ticket t
 left join TicketQC qc
 on t.Id=qc.TicketId
-where qc.ARCupdated=0
---and t.QCStatus=2 
+left join IarUpdate iar
+on t.Id=iar.TicketId
+where (qc.ARCupdated=0 or (qc.ARCupdated=1 and iar.IsUpdated=0 and iar.runTimes=0))
 and qc.AGStatus=3
-and ((t.Comm<>qc.AGComm) or (t.TourCode<>qc.AGTourCode))
---and qc.OPStatus<>2
+and qc.OPStatus<>2
+and (t.Comm<>qc.AGComm or t.TourCode<>qc.AGTourCode)
+and (iar.Commission is null or iar.Commission<>qc.AGComm or iar.TourCode<>qc.AGTourCode)
 and t.CreateDate>=@t
 union
 select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
 t.Comm,t.TourCode,qc.OPComm UpdatedComm,qc.OPTourCode UpdatedTourCode,qc.OPUser,qc.OPLastUser,
-'OP' updatedByRole from Ticket t
+'OP' updatedByRole,iar.Id IarId from Ticket t
 left join TicketQC qc
 on t.Id=qc.TicketId
-where qc.ARCupdated=0
+left join IarUpdate iar
+on t.Id=iar.TicketId
+where (qc.ARCupdated=0 or (qc.ARCupdated=1 and iar.IsUpdated=0 and iar.runTimes=0))
 and qc.OPStatus=2
-and ((t.Comm<>qc.OPComm) or (t.TourCode<>qc.OPTourCode))
+and (t.Comm<>qc.OPComm or t.TourCode<>qc.OPTourCode)
+and (iar.Commission is null or iar.Commission<>qc.OPComm or iar.TourCode<>qc.OPTourCode)
 and t.CreateDate>=@t
-) aa
-left join IarUpdate iu
-on aa.Id=iu.TicketId
 order by IssueDate
 ''')
 
@@ -418,6 +385,8 @@ for i in rows:
     v['OPUser'] = op_user
     # v['AGStatus'] = i.AGStatus
     v['updatedByRole'] = i.updatedByRole
+    v['isPutError'] = False
+    v['hasPutError'] = False
     list_data.append(v)
 
 

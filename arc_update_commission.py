@@ -36,12 +36,23 @@ def execute(post, action, token, from_date, to_date):
     if not modify_html:
         return
 
-    voided_index = modify_html.find('Document is being displayed as view only')
-    if voided_index >= 0:
+    is_void_pass = arc_regex.check_status(modify_html)
+    if is_void_pass == 2:
         post['Status'] = 2
         return
+    elif is_void_pass == 1:
+        post['Status'] = 4
+        return
+        # voided_index = modify_html.find('Document is being displayed as view only')
+    # if voided_index >= 0:
+    #     post['Status'] = 2
+    #     return
 
     token, maskedFC, arc_commission, waiverCode, certificates = arc_regex.modifyTran(modify_html)
+    if arc_commission is None:
+        logger.debug("ARC COMM IS NONE, TKT.# %s, HTML: %s" % (documentNumber, modify_html))
+
+    logger.debug("regex commission: %s" % arc_commission)
     if not token:
         return
 
@@ -49,8 +60,7 @@ def execute(post, action, token, from_date, to_date):
     financialDetails_html = arc_model.financialDetails(token, is_check_payment, commission, waiverCode, maskedFC,
                                                        seqNum, documentNumber, tour_code, qc_tour_code, certificates,
                                                        "MJ", agent_codes, is_check_update=False)
-    # financialDetails_html = arc_model.financialDetails(token, is_check_payment, commission, waiverCode, maskedFC, seqNum,
-    #                                                    documentNumber, tour_code, qc_tour_code, certificates)
+
     if not financialDetails_html:
         return
 
@@ -110,10 +120,17 @@ def check(post, action, token, from_date, to_date):
     modify_html = arc_model.modifyTran(seqNum, documentNumber)
     if not modify_html:
         return
-    voided_index = modify_html.find('Document is being displayed as view only')
-    if voided_index >= 0:
+
+    is_void_pass = arc_regex.check_status(modify_html)
+    if is_void_pass == 2:
         post['Status'] = 2
         return
+    elif is_void_pass == 1:
+        post['Status'] = 4
+        # voided_index = modify_html.find('Document is being displayed as view only')
+    # if voided_index >= 0:
+    #     post['Status'] = 2
+    #     return
 
     token, maskedFC, arc_commission, waiverCode, certificates = arc_regex.modifyTran(modify_html)
     if not token:
@@ -149,16 +166,18 @@ def insert(datas):
         is_updated = 0
         if data['QCComm'] == data['ArcCommUpdated'] and data['QCTourCode'] == data['ArcTourCodeUpdated']:
             is_updated = 1
+
         comm = None
         try:
             comm = float(data['ArcCommUpdated'])
         except ValueError:
             comm = "null"
+
         if not data['ArcId']:
-            insert_sql = insert_sql + '''insert into IarUpdate(Id,Commission,TourCode,TicketDesignator,IsUpdated,TicketId) values (newid(),%s,'%s','%s',%d,'%s');''' % (
+            insert_sql = insert_sql + '''insert into IarUpdate(Id,Commission,TourCode,TicketDesignator,IsUpdated,TicketId,channel) values (newid(),%s,'%s','%s',%d,'%s',1);''' % (
                 comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, data['Id'])
         else:
-            insert_sql = insert_sql + '''update IarUpdate set Commission=%s,TourCode='%s',TicketDesignator='%s',IsUpdated=%d where Id='%s';''' % (
+            insert_sql = insert_sql + '''update IarUpdate set Commission=%s,TourCode='%s',TicketDesignator='%s',IsUpdated=%d,channel=1,updateDateTime=GETDATE() where Id='%s';''' % (
                 comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, data['ArcId'])
 
     logger.info(insert_sql)
@@ -210,7 +229,7 @@ def run(user_name, datas):
                 continue
             execute(data, action, token, from_date, to_date)
 
-            if data['Status'] == 1 or data['Status'] == 3:
+            if data['Status'] == 1 or data['Status'] == 3 or data['Status'] == 4:
                 check(data, action, token, from_date, to_date)
     except Exception as ex:
         logger.critical(ex)
@@ -236,10 +255,16 @@ sql_user = conf.get("sql", "user")
 sql_pwd = conf.get("sql", "pwd")
 
 ms = arc.MSSQL(server=sql_server, db=sql_database, user=sql_user, pwd=sql_pwd)
+# sql = (''''select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,t.Comm,QCComm,
+# t.TourCode,QCTourCode,PaymentType,iu.Id IarId from Ticket t
+# left join IarUpdate iu
+# on t.Id=iu.TicketId
+# where t.Id='68B5CCE8-BDE7-4DBE-B96B-E19D148402E7'
+# ''')
 sql = ('''declare @t date
 set @t=DATEADD(DAY,-1,GETDATE())
-select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,t.Comm,QCComm,t.TourCode,QCTourCode,
-PaymentType,iu.Id IarId from Ticket t
+select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,t.Comm,QCComm,t.TourCode,
+QCTourCode,PaymentType,iu.Id IarId from Ticket t
 left join IarUpdate iu
 on t.Id=iu.TicketId
 where Status not like '[NV]%'
@@ -319,11 +344,11 @@ except Exception as e:
     logger.critical(e)
 
 # -----------------export excel
-file_name = "iar_update_commission"
-try:
-    arc_model.exportExcel(list_data, file_name)
-except Exception as e:
-    logger.critical(e)
+# file_name = "iar_update_commission"
+# try:
+#     arc_model.exportExcel(list_data, file_name)
+# except Exception as e:
+#     logger.critical(e)
 
 mail_smtp_server = conf.get("email", "smtp_server")
 mail_from_addr = conf.get("email", "from")
@@ -333,9 +358,6 @@ try:
     body = ''
     for i in list_data:
         status, updated = arc_model.convertStatus(i)
-        if updated == "Success" or updated == "Void":
-            continue
-
         body = body + '''<tr>
             <td>%s</td>
             <td>%s</td>

@@ -4,87 +4,87 @@ import sys
 import datetime
 
 
-def execute(post, action, token, from_date, to_date):
-    arcNumber = post['ArcNumber']
-    documentNumber = post['Ticket']
-    date = post['IssueDate']
-    commission = post['QCComm']
-    tour_code = ""
-    if post['TourCode']:
-        tour_code = post['TourCode']
-    qc_tour_code = ""
-    if post['QCTourCode']:
-        qc_tour_code = post['QCTourCode']
-
-    is_check_payment = False
-
-    if post['Status'] == 3:
-        is_check_payment = True
-
-    date_time = datetime.datetime.strptime(date, '%Y-%m-%d')
-    ped = (date_time + datetime.timedelta(days=(6 - date_time.weekday()))).strftime('%d%b%y').upper()
-
-    logger.info("UPDATING PED: " + ped + " arc: " + arcNumber + " tkt: " + documentNumber)
-
-    search_html = arc_model.search(ped, action, arcNumber, token, from_date, to_date, documentNumber)
-    if not search_html:
-        return
-    seqNum, documentNumber = arc_regex.search(search_html)
-    if not seqNum:
-        return
-    modify_html = arc_model.modifyTran(seqNum, documentNumber)
-    if not modify_html:
-        return
-
-    is_void_pass = arc_regex.check_status(modify_html)
-    if is_void_pass == 2:
-        post['Status'] = 2
-        return
-    elif is_void_pass == 1:
-        post['Status'] = 4
-        return
-    # voided_index = modify_html.find('Document is being displayed as view only')
-    # if voided_index >= 0:
-    #     post['Status'] = 2
-    #     return
-
-    token, maskedFC, arc_commission, waiverCode, certificates = arc_regex.modifyTran(modify_html)
-    if not token:
-        return
-
-    post['ArcComm'] = arc_commission
-    financialDetails_html = arc_model.financialDetails(token, is_check_payment, commission, waiverCode, maskedFC,
-                                                       seqNum, documentNumber, tour_code, qc_tour_code, certificates,
-                                                       "MJ", agent_codes, is_check_update=False)
-    # financialDetails_html = arc_model.financialDetails(token, is_check, commission, waiverCode, maskedFC, seqNum,
-    #                                                    documentNumber, tour_code, qc_tour_code, certificates)
-
-    if not financialDetails_html:
-        return
-
-    token, arc_tour_code, backOfficeRemarks, ticketDesignators = arc_regex.financialDetails(financialDetails_html)
-    if not token:
-        return
-    post['ArcTourCode'] = arc_tour_code
-
-    if ticketDesignators:
-        list_ticketDesignator = []
-        for ticketDesignator in ticketDesignators:
-            list_ticketDesignator.append(ticketDesignator[1])
-        post['TicketDesignator'] = '/'.join(list_ticketDesignator)
-    if tour_code != qc_tour_code:
-        itineraryEndorsements_html = arc_model.itineraryEndorsements(token, qc_tour_code, backOfficeRemarks,
-                                                                     ticketDesignators)
-        if not itineraryEndorsements_html:
-            return
-        token = arc_regex.itineraryEndorsements(itineraryEndorsements_html)
-    if token:
-        transactionConfirmation_html = arc_model.transactionConfirmation(token)
-        if transactionConfirmation_html:
-            if transactionConfirmation_html.find('Document has been modified') >= 0:
-                post['Status'] = 1
-            else:
-                logger.warning('update may be error')
+# def execute(post, action, token, from_date, to_date):
+#     arcNumber = post['ArcNumber']
+#     documentNumber = post['Ticket']
+#     date = post['IssueDate']
+#     commission = post['QCComm']
+#     tour_code = ""
+#     if post['TourCode']:
+#         tour_code = post['TourCode']
+#     qc_tour_code = ""
+#     if post['QCTourCode']:
+#         qc_tour_code = post['QCTourCode']
+#
+#     is_check_payment = False
+#
+#     if post['Status'] == 3:
+#         is_check_payment = True
+#
+#     date_time = datetime.datetime.strptime(date, '%Y-%m-%d')
+#     ped = (date_time + datetime.timedelta(days=(6 - date_time.weekday()))).strftime('%d%b%y').upper()
+#
+#     logger.info("UPDATING PED: " + ped + " arc: " + arcNumber + " tkt: " + documentNumber)
+#
+#     search_html = arc_model.search(ped, action, arcNumber, token, from_date, to_date, documentNumber)
+#     if not search_html:
+#         return
+#     seqNum, documentNumber = arc_regex.search(search_html)
+#     if not seqNum:
+#         return
+#     modify_html = arc_model.modifyTran(seqNum, documentNumber)
+#     if not modify_html:
+#         return
+#
+#     is_void_pass = arc_regex.check_status(modify_html)
+#     if is_void_pass == 2:
+#         post['Status'] = 2
+#         return
+#     elif is_void_pass == 1:
+#         post['Status'] = 4
+#         return
+#     # voided_index = modify_html.find('Document is being displayed as view only')
+#     # if voided_index >= 0:
+#     #     post['Status'] = 2
+#     #     return
+#
+#     token, maskedFC, arc_commission, waiverCode, certificates = arc_regex.modifyTran(modify_html)
+#     if not token:
+#         return
+#
+#     post['ArcComm'] = arc_commission
+#     financialDetails_html = arc_model.financialDetails(token, is_check_payment, commission, waiverCode, maskedFC,
+#                                                        seqNum, documentNumber, tour_code, qc_tour_code, certificates,
+#                                                        "MJ", agent_codes, is_check_update=False)
+#     # financialDetails_html = arc_model.financialDetails(token, is_check, commission, waiverCode, maskedFC, seqNum,
+#     #                                                    documentNumber, tour_code, qc_tour_code, certificates)
+#
+#     if not financialDetails_html:
+#         return
+#
+#     token, arc_tour_code, backOfficeRemarks, ticketDesignators = arc_regex.financialDetails(financialDetails_html)
+#     if not token:
+#         return
+#     post['ArcTourCode'] = arc_tour_code
+#
+#     if ticketDesignators:
+#         list_ticketDesignator = []
+#         for ticketDesignator in ticketDesignators:
+#             list_ticketDesignator.append(ticketDesignator[1])
+#         post['TicketDesignator'] = '/'.join(list_ticketDesignator)
+#     # if tour_code != qc_tour_code:
+#     #     itineraryEndorsements_html = arc_model.itineraryEndorsements(token, qc_tour_code, backOfficeRemarks,
+#     #                                                                  ticketDesignators)
+#     #     if not itineraryEndorsements_html:
+#     #         return
+#     #     token = arc_regex.itineraryEndorsements(itineraryEndorsements_html)
+#     # if token:
+#     #     transactionConfirmation_html = arc_model.transactionConfirmation(token)
+#     #     if transactionConfirmation_html:
+#     #         if transactionConfirmation_html.find('Document has been modified') >= 0:
+#     #             post['Status'] = 1
+#     #         else:
+#     #             logger.warning('update may be error')
 
 
 def check(post, action, token, from_date, to_date):
@@ -120,15 +120,19 @@ def check(post, action, token, from_date, to_date):
         return
 
     is_void_pass = arc_regex.check_status(modify_html)
+
     if is_void_pass == 2:
         post['Status'] = 2
         return
     elif is_void_pass == 1:
         post['Status'] = 4
+
     # voided_index = modify_html.find('Document is being displayed as view only')
     # if voided_index >= 0:
-    #     post['Status'] = 2
-    #     return
+    #     post['Status'] = 4
+    #     if modify_html.find('Unable to modify a voided document') >= 0:
+    #         post['Status'] = 2
+    #         return
 
     token, maskedFC, arc_commission, waiverCode, certificates = arc_regex.modifyTran(modify_html)
     if not token:
@@ -145,7 +149,13 @@ def check(post, action, token, from_date, to_date):
     token, arc_tour_code, backOfficeRemarks, ticketDesignators = arc_regex.financialDetails(financialDetails_html)
     if not token:
         return
+
     post['ArcTourCodeUpdated'] = arc_tour_code
+    if ticketDesignators:
+        list_ticketDesignator = []
+        for ticketDesignator in ticketDesignators:
+            list_ticketDesignator.append(ticketDesignator[1])
+        post['TicketDesignator'] = '/'.join(list_ticketDesignator)
 
 
 def update(datas):
@@ -156,6 +166,7 @@ def update(datas):
                 ids.append("'" + data['QcId'] + "'")
     if ids:
         update_sql = "update TicketQC set ARCupdated=1 where Id in (%s)" % ','.join(ids)
+        logger.debug(update_sql)
         if ms.ExecNonQuery(update_sql) > 0:
             logger.info('update sql success')
         else:
@@ -180,21 +191,19 @@ def insert(datas):
         if data['QCComm'] == data['ArcCommUpdated'] and data['QCTourCode'] == data['ArcTourCodeUpdated']:
             is_updated = 1
 
+        logger.debug("Ticket ID:%s, IAR ID:%s, QC comm:%s, IAR updated comm:%s,QC tour code:%s, IAR tour code:%s." %
+                     (data['Id'], data['ArcId'], data['QCComm'], data['ArcCommUpdated'], data['QCTourCode'], data['ArcTourCodeUpdated']))
         comm = None
         try:
             comm = float(data['ArcCommUpdated'])
         except ValueError:
             comm = "null"
-
         if not data['ArcId']:
             insert_sql = insert_sql + '''insert into IarUpdate(Id,Commission,TourCode,TicketDesignator,IsUpdated,TicketId,channel) values (newid(),%s,'%s','%s',%d,'%s',3);''' % (
                 comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, data['Id'])
         else:
-            run_time = ""
-            if data['Status'] != 0:
-                run_time = ",runTimes=ISNULL(runTimes,0)+1"
-            insert_sql = insert_sql + '''update IarUpdate set Commission=%s,TourCode='%s',TicketDesignator='%s',IsUpdated=%d,channel=3,updateDateTime=GETDATE()%s where Id='%s';''' % (
-                comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, run_time, data['ArcId'])
+            insert_sql = insert_sql + '''update IarUpdate set Commission=%s,TourCode='%s',TicketDesignator='%s',IsUpdated=%d,channel=5, updateDateTime=GETDATE() where Id='%s';''' % (
+                comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, data['ArcId'])
 
     logger.info(insert_sql)
     rowcount = ms.ExecNonQuery(insert_sql)
@@ -222,41 +231,30 @@ ms = arc.MSSQL(server=sql_server, db=sql_database, user=sql_user, pwd=sql_pwd)
 
 mail_smtp_server = conf.get("email", "smtp_server")
 mail_from_addr = conf.get("email", "from")
-mail_to_addr = conf.get("email", "to_update_user").split(';')
-mail_subject = conf.get("email", "subject") + " by user"
+mail_to_addr = conf.get("email", "to_update_user_sync").split(';')
+mail_subject = conf.get("email", "subject") + " by user sync"
 
 
 mail = arc.Email(smtp_server=mail_smtp_server)
 
 sql = ('''
-declare @t date
-set @t=dateadd(day,-3,getdate())
+declare @start date
+declare @end date
+set @start=dateadd(day,-3,getdate())
+set @end=GETDATE()
 select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
-t.Comm,t.TourCode,qc.AGComm UpdatedComm,qc.AGTourCode UpdatedTourCode,iar.Id IarId from Ticket t
+t.Comm,t.TourCode,qc.OPComm UpdateComm,qc.OPTourCode UpdateTourCode,iar.Id IarId from Ticket t
 left join TicketQC qc
 on t.Id=qc.TicketId
 left join IarUpdate iar
 on t.Id=iar.TicketId
-where (qc.ARCupdated=0 or (qc.ARCupdated=1 and iar.IsUpdated=0 and iar.runTimes=0))
-and qc.AGStatus=3
-and qc.OPStatus<>2
-and (t.Comm<>qc.AGComm or t.TourCode<>qc.AGTourCode)
-and (iar.Commission is null or iar.Commission<>qc.AGComm or iar.TourCode<>qc.AGTourCode)
-and t.IssueDate>=@t
-union
-select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
-t.Comm,t.TourCode,qc.OPComm UpdatedComm,qc.OPTourCode UpdatedTourCode,iar.Id IarId from Ticket t
-left join TicketQC qc
-on t.Id=qc.TicketId
-left join IarUpdate iar
-on t.Id=iar.TicketId
-where (qc.ARCupdated=0 or (qc.ARCupdated=1 and iar.IsUpdated=0 and iar.runTimes=0))
-and qc.OPStatus=2
-and (t.Comm<>qc.OPComm or t.TourCode<>qc.OPTourCode)
-and (iar.Commission is null or iar.Commission<>qc.OPComm or iar.TourCode<>qc.OPTourCode)
-and (qc.OPUser in ('GW','KM','PF') or OPLastUser in ('GW','KM','PF'))
-and t.IssueDate>=@t
-order by IssueDate
+where  --(qc.OPUser in ('GW','KM','PF') or OPLastUser in ('GW','KM','PF'))
+qc.OPStatus=2
+and qc.AGStatus<>3
+and t.IssueDate>=@start and t.IssueDate<@end
+and (qc.OPComm<>iar.Commission or qc.OPTourCode<>iar.TourCode)
+and qc.ARCupdated=1
+order by t.ArcNumber
 ''')
 
 rows = ms.ExecQuery(sql)
@@ -277,9 +275,9 @@ for i in rows:
     v['IssueDate'] = str(i.IssueDate)
     v['ArcNumber'] = i.ArcNumber
     v['Comm'] = str(i.Comm)
-    v['QCComm'] = str(i.UpdatedComm)
+    v['QCComm'] = str(i.UpdateComm)
     v['TourCode'] = i.TourCode
-    v['QCTourCode'] = i.UpdatedTourCode
+    v['QCTourCode'] = i.UpdateTourCode
     v['ArcComm'] = ''
     v['ArcTourCode'] = ''
     v['TicketDesignator'] = ''
@@ -325,11 +323,13 @@ def run(user_name, datas):
     try:
         for data in datas:
             # print data
-            if data['Status'] != 0 and data['Status'] != 3:
-                continue
-            execute(data, action, token, from_date, to_date)
-            if data['Status'] == 1 or data['Status'] == 3 or data['Status'] == 4:
-                check(data, action, token, from_date, to_date)
+            # if data['Status'] != 0 and data['Status'] != 3:
+            #     continue
+            # execute(data, action, token, from_date, to_date)
+
+            check(data, action, token, from_date, to_date)
+            # if data['Status'] == 1:
+            #     check(data, action, token, from_date, to_date)
     except Exception as ex:
         # print e
         logger.critical(ex)
@@ -360,10 +360,10 @@ except Exception as e:
 finally:
     arc_model.store(list_data)
 
-try:
-    update(list_data)
-except Exception as e:
-    logger.critical(e)
+# try:
+#     update(list_data)
+# except Exception as e:
+#     logger.critical(e)
 
 try:
     insert(list_data)
@@ -372,7 +372,7 @@ except Exception as e:
 
 
 #-----------------export excel
-file_name = "iar_update_commission_by_user"
+file_name = "iar_update_commission_by_user_sync"
 try:
     arc_model.exportExcel(list_data, file_name)
 except Exception as e:

@@ -754,16 +754,24 @@ class ArcModel:
             status = 'Void'
         elif data['Status'] == 3:
             status = 'CK'
+        elif data['Status'] == 4:
+            status = 'Pass'
 
         if data['Status'] == 1 or data['Status'] == 3:
-            data['QCComm'] = "" if data['QCComm'] is None else data['QCComm']
-            data['ArcCommUpdated'] = "" if data['ArcCommUpdated'] is None else data['ArcCommUpdated']
-            data['QCTourCode'] = "" if data['QCTourCode'] is None else data['QCTourCode'].upper()
-            data['ArcTourCodeUpdated'] = "" if data['ArcTourCodeUpdated'] is None else data['ArcTourCodeUpdated']
-            if data['QCComm'] == data['ArcCommUpdated'] and data['QCTourCode'] == data['ArcTourCodeUpdated']:
-                is_updated = 'Success'
+            if "isPutError" not in data or not data['isPutError']:
+                data['QCComm'] = "" if data['QCComm'] is None else data['QCComm']
+                data['ArcCommUpdated'] = "" if data['ArcCommUpdated'] is None else data['ArcCommUpdated']
+                data['QCTourCode'] = "" if data['QCTourCode'] is None else data['QCTourCode'].upper()
+                data['ArcTourCodeUpdated'] = "" if data['ArcTourCodeUpdated'] is None else data['ArcTourCodeUpdated']
+                if data['QCComm'] == data['ArcCommUpdated'] and data['QCTourCode'] == data['ArcTourCodeUpdated']:
+                    is_updated = 'Success'
+            else:
+                if data['hasPutError']:
+                    is_updated = 'Success'
         elif data['Status'] == 2:
             is_updated = 'Void'
+        elif data['Status'] == 4:
+            is_updated = 'Pass'
 
         return status, is_updated
 
@@ -874,9 +882,7 @@ class Regex:
             return None, None
 
     def modifyTran(self, html):
-
-        token = maskedFC = waiverCode = None
-        commission = ""
+        token = maskedFC = waiverCode = commission = None
         token = self.__token(html)
 
         pattern_masked = re.compile(
@@ -886,7 +892,7 @@ class Regex:
             maskedFC = masked_result[0]
 
         pattern_commission = re.compile(
-            r'<input type="text" name="amountCommission" maxlength="10" size="15" value="(\d+\.\d{2})" class="contenttextright">')
+            r'<input type="text" name="amountCommission" maxlength="10" size="15" value="(\d+\.\d{2}|\s?)" (disabled="disabled" )?class="contenttextright">')
         commission_result = self.__public(pattern_commission, html)
         if commission_result:
             commission = commission_result[0]
@@ -909,19 +915,19 @@ class Regex:
         token = self.__token(html)
 
         pattern_tour_code = re.compile(
-            r'<input type="text" name="tourCode" maxlength="15" size="22" value="(.+?)" class="contenttext">')
+            r'<input type="text" name="tourCode" maxlength="15" size="22" value="(.*?)" (disabled="disabled" )?class="contenttext">')
         tour_code_result = self.__public(pattern_tour_code, html)
         if tour_code_result:
             tour_code = tour_code_result[0]
 
         pattern_backOfficeRemarks = re.compile(
-            r'<input type="text" name="backOfficeRemarks" maxlength="49" size="70" value="(.*?)" class="contenttext">')
+            r'<input type="text" name="backOfficeRemarks" maxlength="49" size="70" value="(.*?)" (disabled="disabled" )?class="contenttext">')
         backOfficeRemarks_result = self.__public(pattern_backOfficeRemarks, html)
         if backOfficeRemarks_result:
             backOfficeRemarks = backOfficeRemarks_result[0]
 
         pattern_ticketDesignator = re.compile(
-            r'<input type="text" name="coupon\[(\d{1})\]\.ticketDesignator" maxlength="14" size="20" value="(.*?)" class="contenttext">')
+            r'<input type="text" name="coupon\[(\d{1})\]\.ticketDesignator" maxlength="14" size="20" value="(.*?)" (disabled="disabled" )?class="contenttext">')
         ticketDesignator_result = self.__public(pattern_ticketDesignator, html, True)
         return token, tour_code, backOfficeRemarks, ticketDesignator_result
 
@@ -957,6 +963,16 @@ class Regex:
           </td>
         </tr>''')
         return self.__public(pattern, html, True)
+
+# 1 = pass, 2 = void, 0 = default
+    def check_status(self, html):
+        status = 0
+        if html.find('Document is being displayed as view only') >= 0:
+            status = 1
+            if html.find('Unable to modify a voided document') >= 0:
+                status = 2
+
+        return status
 
 
 class MSSQL:

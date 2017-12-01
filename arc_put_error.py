@@ -10,8 +10,8 @@ def execute(post, action, token, from_date, to_date):
     date = post['IssueDate']
     error_code = post['ErrorCode']
     is_check_payment = False
-    if post['Status'] == 3:
-        is_check_payment = True
+    # if post['Status'] == 3:
+    #     is_check_payment = True
 
     date_time = datetime.datetime.strptime(date, '%Y-%m-%d')
     ped = (date_time+datetime.timedelta(days=(6-date_time.weekday()))).strftime('%d%b%y').upper()
@@ -28,15 +28,29 @@ def execute(post, action, token, from_date, to_date):
     if not modify_html:
         return
 
-    voided_index = modify_html.find('Document is being displayed as view only')
-    if voided_index >= 0:
+    is_void_pass = arc_regex.check_status(modify_html)
+    if is_void_pass == 2:
         post['Status'] = 2
         return
+    elif is_void_pass == 1:
+        post['Status'] = 4
+        return
+    # voided_index = modify_html.find('Document is being displayed as view only')
+    # if voided_index >= 0:
+    #     post['Status'] = 2
+    #     return
 
     token, maskedFC, arc_commission, waiverCode, certificates = arc_regex.modifyTran(modify_html)
-    logger.debug("regex commission:"+arc_commission)
+    if arc_commission is None:
+        logger.debug("ARC COMM IS NONE, TKT.# %s, HTML: %s" % (documentNumber, modify_html))
+        return
+
+    logger.debug("regex commission: %s" % arc_commission)
     if not token:
         return
+
+    if not arc_commission:
+        arc_commission = post['Commission']
 
     financialDetails_html = arc_model.financialDetails(token, is_check_payment, arc_commission, waiverCode, maskedFC,
                                                        seqNum, documentNumber, "", "", certificates, error_code,
@@ -73,46 +87,43 @@ sql_pwd = conf.get("sql", "pwd")
 ms = arc.MSSQL(server=sql_server, db=sql_database, user=sql_user, pwd=sql_pwd)
 sql = ('''declare @t date
 set @t=DATEADD(DAY,-1,GETDATE())
-select Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,'M1' ErrorCode from Ticket
+select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'M1' ErrorCode,iar.Id iarId from Ticket t
+left join IarUpdate iar
+on t.Id=iar.TicketId
 where Status not like '[NV]%'
 and IssueDate=@t
-and QCStatus=2
-and (TicketNumber not like '04[457]7%' or TicketNumber not like '04[457]86%'
-or TicketNumber not like '13[49]7%' or TicketNumber not like '13[49]86%'
-or TicketNumber not like '1477%' or TicketNumber not like '14786%'
-or TicketNumber not like '2307%' or TicketNumber not like '23086%'
-or TicketNumber not like '2697%' or TicketNumber not like '26986%'
-or TicketNumber not like '46[29]7%' or TicketNumber not like '46[29]86%'
-or TicketNumber not like '5447%' or TicketNumber not like '54486%'
-or TicketNumber not like '8377%' or TicketNumber not like '83786%'
-or TicketNumber not like '9577%' or TicketNumber not like '95786%')
-and Id not in (
-select t.Id from Ticket t
-left join IarUpdate iu
-on t.Id=iu.TicketId
-where Status not like '[NV]%'
-and Status not in ('ER','RR','RX','RD')
-and FareType not in ('BULK','SR')
-and IssueDate=@t
-and t.Comm>=0
-and t.Comm<QCComm-5
-and (ISNULL(t.TourCode,'')=''
-or ((TicketNumber like '00[16]7%' or TicketNumber like '00[16]86%'
-or TicketNumber like '0147%' or TicketNumber like '01486%'
-or TicketNumber like '1767%' or TicketNumber like '17686%'
-or TicketNumber like '6077%' or TicketNumber like '60786%'
-or TicketNumber like '0727%' or TicketNumber like '07286%'
-or TicketNumber like '0657%' or TicketNumber like '06586%'
-or TicketNumber like '1577%' or TicketNumber like '15786%'
-or TicketNumber like '2357%' or TicketNumber like '23586%'
-or TicketNumber like '5557%' or TicketNumber like '55586%'
-or TicketNumber like '1607%' or TicketNumber like '16086%') and t.TourCode<>'')))
+and (iar.Id is null or iar.IsUpdated=0)
+and ((QCStatus=2
+and TicketNumber not like '04[457]7%' 
+and TicketNumber not like '04[457]86%'
+and TicketNumber not like '13[49]7%' 
+and TicketNumber not like '13[49]86%'
+and TicketNumber not like '1477%' 
+and TicketNumber not like '14786%'
+and TicketNumber not like '2307%' 
+and TicketNumber not like '23086%'
+and TicketNumber not like '2697%' 
+and TicketNumber not like '26986%'
+and TicketNumber not like '46[29]7%' 
+and TicketNumber not like '46[29]86%'
+and TicketNumber not like '5447%' 
+and TicketNumber not like '54486%'
+and TicketNumber not like '8377%' 
+and TicketNumber not like '83786%'
+and TicketNumber not like '9577%' 
+and TicketNumber not like '95786%')
+or 
+(TicketNumber like '1577%' or TicketNumber like '15786%'
+or ((TicketNumber like '7817%' or TicketNumber like '78186%') and ISNULL(McoNumber,'')='')))
 union
-select t.Id,t.[SID],t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,PaymentType,'DUP' ErrorCode from Ticket t
+select t.Id,t.[SID],t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,PaymentType,t.Comm,'DUP' ErrorCode,iar.Id iarId from Ticket t
 right join TicketDuplicate td
 on t.id=td.id
-where td.insertDateTime>=dateadd(day,-7,getdate())
+left join IarUpdate iar
+on t.Id=iar.TicketId
+where td.insertDateTime>=DATEADD(day,-7,getdate())
 and td.isARCUpdated=0
+and (iar.IsUpdated is null or iar.IsUpdated=0)
 order by ArcNumber,Ticket
 ''')
 
@@ -132,8 +143,10 @@ if not list_data:
         v['ArcNumber'] = row.ArcNumber
         v['Status'] = 0
         v['ErrorCode'] = row.ErrorCode
-        if row.PaymentType != 'C':
-            v['Status'] = 3
+        v['IarId'] = row.iarId
+        v['Commission'] = str(row.Comm)
+        # if row.PaymentType != 'C':
+        #     v['Status'] = 3
 
         list_data.append(v)
 
@@ -197,6 +210,34 @@ def update(datas):
         else:
             logger.error('update sql error')
 
+
+def insert(datas):
+    if not datas:
+        return
+    insert_sql = ''
+
+    ids = []
+    for data in datas:
+        if data['Id'] in ids:
+            continue
+        ids.append(data['Id'])
+        # result = 0
+        # if data['Status'] == 1:
+        #     result = 1
+        if not data['IarId']:
+            insert_sql = insert_sql + '''insert into IarUpdate(Id,TicketId,channel) values (newid(),'%s',4);''' % (
+                data['Id'])
+        else:
+            insert_sql = insert_sql + '''update IarUpdate set channel=4 where Id='%s';''' % (
+                data['IarId'])
+
+    logger.info(insert_sql)
+    rowcount = ms.ExecNonQuery(insert_sql)
+    if rowcount > 0:
+        logger.info('insert and update success')
+    else:
+        logger.error('insert and update error')
+
 try:
     section = "arc"
     for option in conf.options(section):
@@ -221,22 +262,28 @@ try:
 except Exception as e:
     logger.critical(e)
 
+try:
+    insert(list_data)
+except Exception as e:
+    logger.critical(e)
+
 # ##---------------------------send email
 mail_smtp_server = conf.get("email", "smtp_server")
 mail_from_addr = conf.get("email", "from")
-mail_to_addr = conf.get("email", "to").split(';')
+mail_to_addr = conf.get("email", "to_put_error").split(';')
 mail_subject = conf.get("email", "subject")+' put error'
 
 try:
     body = ''
     for i in list_data:
-        status = 'No'
-        if i['Status'] == 1:
-            status = 'Yes'
-        elif i['Status'] == 2:
-            status = 'Void'
-        elif i['Status'] == 3:
-            status = 'Check'
+        status, updated = arc_model.convertStatus(i)
+        # status = 'No'
+        # if i['Status'] == 1:
+        #     status = 'Yes'
+        # elif i['Status'] == 2:
+        #     status = 'Void'
+        # elif i['Status'] == 3:
+        #     status = 'Check'
 
         body = body+'''<tr>
             <td>%s</td>

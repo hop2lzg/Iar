@@ -12,6 +12,7 @@ conf = ConfigParser.ConfigParser()
 conf.read('../iar_update.conf')
 agent_codes = conf.get("certificate", "agentCodes").split(',')
 
+
 def run(user_name, arc_numbers, ped, action):
     # ----------------------login
     password = conf.get("login", user_name)
@@ -43,13 +44,26 @@ def execute(data):
     if not modify_html:
         return
 
-    voided_index = modify_html.find('Document is being displayed as view only')
-    if voided_index >= 0:
-        data['status'] = 2
+    is_void_pass = arc_regex.check_status(modify_html)
+
+    if is_void_pass == 2:
+        data['Status'] = 2
+        return
+    elif is_void_pass == 1:
+        data['Status'] = 4
         return
 
+    # voided_index = modify_html.find('Document is being displayed as view only')
+    # if voided_index >= 0:
+    #     data['status'] = 2
+    #     return
+
     token, maskedFC, commission, waiverCode, certificates = arc_regex.modifyTran(modify_html)
-    logger.debug("regex commission:" + commission)
+    if commission is None:
+        logger.debug("ARC COMM IS NONE, TKT.# %s, HTML: %s" % (documentNumber, modify_html))
+        return
+
+    logger.debug("regex commission: %s" % commission)
     if not token or not maskedFC:
         return
 
@@ -103,6 +117,7 @@ def remove(today, weekday, ped, action, arc_number):
         logger.warning('regex seach error')
         return
 
+    logger.info(list_regex_search)
     for search in list_regex_search:
         v = {}
         v['ticketNumber'] = search[2] + search[0]
@@ -111,11 +126,10 @@ def remove(today, weekday, ped, action, arc_number):
         v['date'] = search[4]
         v['arcNumber'] = arc_number
         v['status'] = 0
-
+        # print v
         execute(v)
 
         list_data.append(v)
-
 
 list_data = []
 try:
@@ -148,11 +162,8 @@ mail_subject = conf.get("email", "subject") + " remove error"
 try:
     body = ''
     for i in list_data:
-        status = 'No'
-        if i['status'] == 1:
-            status = 'Yes'
-        elif i['status'] == 2:
-            status = 'Void'
+        status, updated = arc_model.convertStatus(i)
+
         body = body + '''<tr>
         <td>%s</td>
         <td>%s</td>
