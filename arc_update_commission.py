@@ -153,8 +153,9 @@ def check(post, action, token, from_date, to_date):
 def insert(datas):
     if not datas:
         return
-    insert_sql = ''
+    # insert_sql = ''
     ids = []
+    sqls = []
     for data in datas:
         if data['Id'] in ids:
             continue
@@ -174,14 +175,27 @@ def insert(datas):
             comm = "null"
 
         if not data['ArcId']:
-            insert_sql = insert_sql + '''insert into IarUpdate(Id,Commission,TourCode,TicketDesignator,IsUpdated,TicketId,channel) values (newid(),%s,'%s','%s',%d,'%s',1);''' % (
-                comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, data['Id'])
-        else:
-            insert_sql = insert_sql + '''update IarUpdate set Commission=%s,TourCode='%s',TicketDesignator='%s',IsUpdated=%d,channel=1,updateDateTime=GETDATE() where Id='%s';''' % (
-                comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, data['ArcId'])
+            sqls.append('''insert into IarUpdate(Id,Commission,TourCode,TicketDesignator,IsUpdated,TicketId,channel) values (newid(),%s,'%s','%s',%d,'%s',1);''' % (
+                comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, data['Id']))
 
-    logger.info(insert_sql)
-    rowcount = ms.ExecNonQuery(insert_sql)
+            # insert_sql = insert_sql + '''insert into IarUpdate(Id,Commission,TourCode,TicketDesignator,IsUpdated,TicketId,channel) values (newid(),%s,'%s','%s',%d,'%s',1);''' % (
+            #     comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, data['Id'])
+        else:
+            sqls.append('''update IarUpdate set Commission=%s,TourCode='%s',TicketDesignator='%s',IsUpdated=%d,channel=1,updateDateTime=GETDATE() where Id='%s';''' % (
+                comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, data['ArcId']))
+
+            # insert_sql = insert_sql + '''update IarUpdate set Commission=%s,TourCode='%s',TicketDesignator='%s',IsUpdated=%d,channel=1,updateDateTime=GETDATE() where Id='%s';''' % (
+            #     comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, data['ArcId'])
+
+    if not sqls:
+        logger.warn("Insert or update no data")
+        return
+
+    logger.info("".join(sqls))
+    rowcount = ms.ExecNonQuerys(sqls)
+    if rowcount != len(sqls):
+        logger.warn("update:%s, updated:%s" % (len(sqls), rowcount))
+
     if rowcount > 0:
         logger.info('insert success')
     else:
@@ -255,12 +269,6 @@ sql_user = conf.get("sql", "user")
 sql_pwd = conf.get("sql", "pwd")
 
 ms = arc.MSSQL(server=sql_server, db=sql_database, user=sql_user, pwd=sql_pwd)
-# sql = (''''select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,t.Comm,QCComm,
-# t.TourCode,QCTourCode,PaymentType,iu.Id IarId from Ticket t
-# left join IarUpdate iu
-# on t.Id=iu.TicketId
-# where t.Id='68B5CCE8-BDE7-4DBE-B96B-E19D148402E7'
-# ''')
 sql = ('''declare @t date
 set @t=DATEADD(DAY,-1,GETDATE())
 select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,t.Comm,QCComm,t.TourCode,
@@ -271,6 +279,8 @@ where Status not like '[NV]%'
 and Status not in ('ER','RR','RX','RD')
 and FareType not in ('BULK','SR')
 and IssueDate=@t
+and (iu.Id is null or iu.IsUpdated=0)
+--and (iu.AuditorStatus is null or iu.AuditorStatus=0)
 and t.Comm>=0
 and t.Comm<QCComm-5
 and (ISNULL(t.TourCode,'')=''
@@ -344,11 +354,11 @@ except Exception as e:
     logger.critical(e)
 
 # -----------------export excel
-# file_name = "iar_update_commission"
-# try:
-#     arc_model.exportExcel(list_data, file_name)
-# except Exception as e:
-#     logger.critical(e)
+file_name = "iar_update_commission"
+try:
+    arc_model.exportExcel(list_data, file_name)
+except Exception as e:
+    logger.critical(e)
 
 mail_smtp_server = conf.get("email", "smtp_server")
 mail_from_addr = conf.get("email", "from")
@@ -391,8 +401,8 @@ try:
     <tbody>%s
     </tbody></table>''' % body
     mail = arc.Email(smtp_server=mail_smtp_server)
-    # mail.send(mail_from_addr, mail_to_addr, mail_subject, body, ['excel/' + file_name + '.xlsx'])
-    mail.send(mail_from_addr, mail_to_addr, mail_subject, body)
+    mail.send(mail_from_addr, mail_to_addr, mail_subject, body, ['excel/' + file_name + '.xlsx'])
+    # mail.send(mail_from_addr, mail_to_addr, mail_subject, body)
     logger.info('email sent')
 except Exception as e:
     logger.critical(e)

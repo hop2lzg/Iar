@@ -121,7 +121,7 @@ def execute(post, action, token, from_date, to_date):
     logger.info("ARC commission: %s  updating commission: %s" % (arc_commission, commission))
     arc_commission_is_exception, arc_commission_float = convert_to_float(arc_commission)
     commission_is_exception, commission_float = convert_to_float(commission)
-    if arc_commission_is_exception or commission_is_exception or (post['OPUser'] != "GW" and post['updatedByRole'] != "AG" and arc_commission_float > commission_float):
+    if arc_commission_is_exception or commission_is_exception or (post['updatedByRole'] != "AG" and arc_commission_float > commission_float):
         agent_code = "M2"
         is_et_button = True
         commission = arc_commission
@@ -177,8 +177,8 @@ def check(post, action, token, from_date, to_date):
         qc_tour_code = post['QCTourCode']
 
     is_check_payment = False
-    if post['Status'] == 3:
-        is_check_payment = True
+    # if post['Status'] == 3:
+    #     is_check_payment = True
 
     date_time = datetime.datetime.strptime(date, '%Y-%m-%d')
     ped = (date_time + datetime.timedelta(days=(6 - date_time.weekday()))).strftime('%d%b%y').upper()
@@ -253,9 +253,10 @@ def update(datas):
 def insert(datas):
     if not datas:
         return
-    insert_sql = ''
+    # insert_sql = ''
 
     ids = []
+    sqls = []
     for data in datas:
         if data['Id'] in ids:
             continue
@@ -275,17 +276,30 @@ def insert(datas):
             comm = "null"
 
         if not data['ArcId']:
-            insert_sql = insert_sql + '''insert into IarUpdate(Id,Commission,TourCode,TicketDesignator,IsUpdated,TicketId,channel) values (newid(),%s,'%s','%s',%d,'%s',2);''' % (
-                comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, data['Id'])
+            sqls.append('''insert into IarUpdate(Id,Commission,TourCode,TicketDesignator,IsUpdated,TicketId,channel) values (newid(),%s,'%s','%s',%d,'%s',2);''' % (comm, data['ArcTourCodeUpdated'], data['TicketDesignator'],
+                                                           is_updated, data['Id']))
+            # insert_sql = insert_sql + '''insert into IarUpdate(Id,Commission,TourCode,TicketDesignator,IsUpdated,TicketId,channel) values (newid(),%s,'%s','%s',%d,'%s',2);''' % (
+            #     comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, data['Id'])
         else:
             run_time = ""
             if data['Status'] != 0:
                 run_time = ",runTimes=ISNULL(runTimes,0)+1"
-            insert_sql = insert_sql + '''update IarUpdate set Commission=%s,TourCode='%s',TicketDesignator='%s',IsUpdated=%d,channel=2,updateDateTime=GETDATE()%s where Id='%s';''' % (
-                comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, run_time, data['ArcId'])
 
-    logger.info(insert_sql)
-    rowcount = ms.ExecNonQuery(insert_sql)
+            sqls.append('''update IarUpdate set Commission=%s,TourCode='%s',TicketDesignator='%s',IsUpdated=%d,channel=2,updateDateTime=GETDATE()%s where Id='%s';''' % (
+                comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, run_time, data['ArcId']))
+
+            # insert_sql = insert_sql + '''update IarUpdate set Commission=%s,TourCode='%s',TicketDesignator='%s',IsUpdated=%d,channel=2,updateDateTime=GETDATE()%s where Id='%s';''' % (
+            #     comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, run_time, data['ArcId'])
+
+    if not sqls:
+        logger.warn("Insert or update no data")
+        return
+
+    logger.info("".join(sqls))
+    rowcount = ms.ExecNonQuerys(sqls)
+    if rowcount != len(sqls):
+        logger.warn("update:%s, updated:%s" % (len(sqls), rowcount))
+
     if rowcount > 0:
         logger.info('insert success')
     else:
@@ -331,6 +345,7 @@ and qc.AGStatus=3
 and qc.OPStatus<>2
 and (t.Comm<>qc.AGComm or t.TourCode<>qc.AGTourCode)
 and (iar.Commission is null or iar.Commission<>qc.AGComm or iar.TourCode<>qc.AGTourCode)
+and (iar.AuditorStatus is null or iar.AuditorStatus=0)
 and t.CreateDate>=@t
 union
 select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
@@ -344,6 +359,7 @@ where (qc.ARCupdated=0 or (qc.ARCupdated=1 and iar.IsUpdated=0 and iar.runTimes=
 and qc.OPStatus=2
 and (t.Comm<>qc.OPComm or t.TourCode<>qc.OPTourCode)
 and (iar.Commission is null or iar.Commission<>qc.OPComm or iar.TourCode<>qc.OPTourCode)
+and (iar.AuditorStatus is null or iar.AuditorStatus=0)
 and t.CreateDate>=@t
 order by IssueDate
 ''')

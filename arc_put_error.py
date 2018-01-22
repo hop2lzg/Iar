@@ -93,6 +93,7 @@ on t.Id=iar.TicketId
 where Status not like '[NV]%'
 and IssueDate=@t
 and (iar.Id is null or iar.IsUpdated=0)
+and (iar.AuditorStatus is null or iar.AuditorStatus=0)
 and ((QCStatus=2
 and TicketNumber not like '04[457]7%' 
 and TicketNumber not like '04[457]86%'
@@ -124,6 +125,7 @@ on t.Id=iar.TicketId
 where td.insertDateTime>=DATEADD(day,-7,getdate())
 and td.isARCUpdated=0
 and (iar.IsUpdated is null or iar.IsUpdated=0)
+and (iar.AuditorStatus is null or iar.AuditorStatus=0)
 order by ArcNumber,Ticket
 ''')
 
@@ -214,9 +216,10 @@ def update(datas):
 def insert(datas):
     if not datas:
         return
-    insert_sql = ''
+    # insert_sql = ''
 
     ids = []
+    sqls = []
     for data in datas:
         if data['Id'] in ids:
             continue
@@ -225,14 +228,25 @@ def insert(datas):
         # if data['Status'] == 1:
         #     result = 1
         if not data['IarId']:
-            insert_sql = insert_sql + '''insert into IarUpdate(Id,TicketId,channel) values (newid(),'%s',4);''' % (
-                data['Id'])
+            sqls.append('''insert into IarUpdate(Id,TicketId,channel) values (newid(),'%s',4);''' % (
+                data['Id']))
+            # insert_sql = insert_sql + '''insert into IarUpdate(Id,TicketId,channel) values (newid(),'%s',4);''' % (
+            #     data['Id'])
         else:
-            insert_sql = insert_sql + '''update IarUpdate set channel=4 where Id='%s';''' % (
-                data['IarId'])
+            sqls.append('''update IarUpdate set channel=4 where Id='%s';''' % (
+                data['IarId']))
+            # insert_sql = insert_sql + '''update IarUpdate set channel=4 where Id='%s';''' % (
+            #     data['IarId'])
 
-    logger.info(insert_sql)
-    rowcount = ms.ExecNonQuery(insert_sql)
+    if not sqls:
+        logger.warn("Insert or update no data")
+        return
+
+    logger.info("".join(sqls))
+    rowcount = ms.ExecNonQuerys(sqls)
+    if rowcount != len(sqls):
+        logger.warn("update:%s, updated:%s" % (len(sqls), rowcount))
+
     if rowcount > 0:
         logger.info('insert and update success')
     else:
@@ -276,14 +290,15 @@ mail_subject = conf.get("email", "subject")+' put error'
 try:
     body = ''
     for i in list_data:
-        status, updated = arc_model.convertStatus(i)
-        # status = 'No'
-        # if i['Status'] == 1:
-        #     status = 'Yes'
-        # elif i['Status'] == 2:
-        #     status = 'Void'
-        # elif i['Status'] == 3:
-        #     status = 'Check'
+        status = 'No'
+        if i['Status'] == 1:
+            status = 'Yes'
+        elif i['Status'] == 2:
+            status = 'Void'
+        elif i['Status'] == 3:
+            status = 'Check'
+        elif i['Status'] == 4:
+            status = 'Pass'
 
         body = body+'''<tr>
             <td>%s</td>

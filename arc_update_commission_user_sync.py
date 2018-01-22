@@ -176,9 +176,10 @@ def update(datas):
 def insert(datas):
     if not datas:
         return
-    insert_sql = ''
+    # insert_sql = ''
 
     ids = []
+    sqls = []
     for data in datas:
         if data['Id'] in ids:
             continue
@@ -199,21 +200,32 @@ def insert(datas):
         except ValueError:
             comm = "null"
         if not data['ArcId']:
-            insert_sql = insert_sql + '''insert into IarUpdate(Id,Commission,TourCode,TicketDesignator,IsUpdated,TicketId,channel) values (newid(),%s,'%s','%s',%d,'%s',3);''' % (
-                comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, data['Id'])
+            sqls.append('''insert into IarUpdate(Id,Commission,TourCode,TicketDesignator,IsUpdated,TicketId,channel) values (newid(),%s,'%s','%s',%d,'%s',3);''' % (
+                comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, data['Id']))
+            # insert_sql = insert_sql + '''insert into IarUpdate(Id,Commission,TourCode,TicketDesignator,IsUpdated,TicketId,channel) values (newid(),%s,'%s','%s',%d,'%s',3);''' % (
+            #     comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, data['Id'])
         else:
-            insert_sql = insert_sql + '''update IarUpdate set Commission=%s,TourCode='%s',TicketDesignator='%s',IsUpdated=%d,channel=5, updateDateTime=GETDATE() where Id='%s';''' % (
-                comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, data['ArcId'])
+            sqls.append('''update IarUpdate set Commission=%s,TourCode='%s',TicketDesignator='%s',IsUpdated=%d,channel=5, updateDateTime=GETDATE() where Id='%s';''' % (
+                comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, data['ArcId']))
+            # insert_sql = insert_sql + '''update IarUpdate set Commission=%s,TourCode='%s',TicketDesignator='%s',IsUpdated=%d,channel=5, updateDateTime=GETDATE() where Id='%s';''' % (
+            #     comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, data['ArcId'])
 
-    logger.info(insert_sql)
-    rowcount = ms.ExecNonQuery(insert_sql)
+    if not sqls:
+        logger.warn("Insert or update no data")
+        return
+
+    logger.info("".join(sqls))
+    rowcount = ms.ExecNonQuerys(sqls)
+    if rowcount != len(sqls):
+        logger.warn("update:%s, updated:%s" % (len(sqls), rowcount))
+
     if rowcount > 0:
         logger.info('insert success')
     else:
         logger.error('insert error')
 
 
-arc_model = arc.ArcModel("arc update commission by user")
+arc_model = arc.ArcModel("arc update commission by user sync")
 arc_regex = arc.Regex()
 logger = arc_model.logger
 
@@ -240,7 +252,7 @@ mail = arc.Email(smtp_server=mail_smtp_server)
 sql = ('''
 declare @start date
 declare @end date
-set @start=dateadd(day,-3,getdate())
+set @start=dateadd(day,-5,getdate())
 set @end=GETDATE()
 select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
 t.Comm,t.TourCode,qc.OPComm UpdateComm,qc.OPTourCode UpdateTourCode,iar.Id IarId from Ticket t
@@ -252,8 +264,20 @@ where  --(qc.OPUser in ('GW','KM','PF') or OPLastUser in ('GW','KM','PF'))
 qc.OPStatus=2
 and qc.AGStatus<>3
 and t.IssueDate>=@start and t.IssueDate<@end
-and (qc.OPComm<>iar.Commission or qc.OPTourCode<>iar.TourCode)
-and qc.ARCupdated=1
+and (iar.Commission is null or qc.OPComm<>iar.Commission or qc.OPTourCode<>iar.TourCode)
+and (iar.AuditorStatus is null or iar.AuditorStatus=0)
+union
+select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
+t.Comm,t.TourCode,qc.AGComm UpdateComm,qc.AGTourCode UpdateTourCode,iar.Id IarId from Ticket t
+left join TicketQC qc
+on t.Id=qc.TicketId
+left join IarUpdate iar
+on t.Id=iar.TicketId
+where qc.AGStatus=3
+and (iar.Commission is null or iar.Commission<>qc.AGComm or iar.TourCode<>qc.AGTourCode)
+and t.IssueDate>=@start
+and t.IssueDate<@end
+and (iar.AuditorStatus is null or iar.AuditorStatus=0)
 order by t.ArcNumber
 ''')
 

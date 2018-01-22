@@ -406,202 +406,6 @@ class ArcModel:
         except Exception as e:
             self.logger.warning(e)
 
-    # def financialDetailsPutError(self, token, is_check, commission, waiverCode, maskedFC, seqNum, documentNumber,
-    #                              certificates):
-    #     self.logger.debug("go to financialDetails")
-    #     certificateItems = []
-    #     if certificates:
-    #         for i in certificates:
-    #             if i[1] != "MJ" and i[1] != "M1":
-    #                 certificateItems.append(i[1])
-    #
-    #     certificateItem_len = len(certificateItems)
-    #     for i in range(0, 3):
-    #         if i >= certificateItem_len:
-    #             certificateItems.append("")
-    #
-    #     certificateItem_0_value = "M1"
-    #     if is_check:
-    #         certificateItem_0_value = ""
-    #
-    #     if not waiverCode:
-    #         waiverCode = ""
-    #
-    #     url = "https://iar2.arccorp.com/IAR/financialDetails.do"
-    #     values = {
-    #         'org.apache.struts.taglib.html.TOKEN': token,
-    #         # 'navButton2.x':"63",
-    #         # 'navButton2.y':"18",
-    #         'amountCommission': commission,
-    #         'miscSupportTypeId': "",
-    #         'waiverCode': waiverCode,
-    #         'certificateItem[0].value': certificateItem_0_value,
-    #         'certificateItem[1].value': certificateItems[0],
-    #         'certificateItem[2].value': certificateItems[1],
-    #         'certificateItem[3].value': certificateItems[2],
-    #         'error22010': "false",
-    #         'oldDocumentAirlineCodeFI': "",
-    #         'oldDocumentNumberFI': "",
-    #         'maskedFC': maskedFC,
-    #         'ETButton.x': "27",
-    #         'ETButton.y': "7"
-    #     }
-    #
-    #     data = urllib.urlencode(values)
-    #     headers = {
-    #         'Accept': self._accpet,
-    #         'Accept-Encoding': "gzip, deflate, br",
-    #         'Accept-Language': self._accept_language,
-    #         'Cache-Control': self._cache_control,
-    #         'Connection': self._connection,
-    #         'Content-Length': len(data),
-    #         'Content-Type': self._content_type,
-    #         'Host': "iar2.arccorp.com",
-    #         'Origin': "https://iar2.arccorp.com",
-    #         'Referer': "https://iar2.arccorp.com/IAR/modifyTran.do?seqNum=" + seqNum + "&documentNumber=" + documentNumber,
-    #         'Upgrade-Insecure-Requests': self._upgrade_insecure_requests,
-    #         'User-Agent': self._user_agent
-    #     }
-    #     try:
-    #         req = urllib2.Request(url, data, headers)
-    #         res = self._opener.open(req)
-    #         html = res.read()
-    #         self.__save_page("FinancialDetails", "FinancialDetails", html)
-    #         return html
-    #     except Exception as e:
-    #         self.logger.warning(e)
-
-    # def financial_details_put_error(self, token, is_check_payment, commission, waiverCode, maskedFC, seqNum, documentNumber,
-    #                                 certificates, certificate, agent_codes):
-    #     self.logger.debug("go to financialDetails")
-    #     certificateItems = []
-    #     if certificates:
-    #         for i in certificates:
-    #             if i[1] not in agent_codes:
-    #                 certificateItems.append(i[1])
-    #
-    #     certificateItem_len = len(certificateItems)
-    #     for i in range(0, 3):
-    #         if i >= certificateItem_len:
-    #             certificateItems.append("")
-    #
-    #     certificateItem_0_value = certificate
-    #     if certificate != "M2" and is_check_payment:
-    #         certificateItem_0_value = ""
-    #
-    #     if not waiverCode:
-    #         waiverCode = ""
-    #
-    #     url = "https://iar2.arccorp.com/IAR/financialDetails.do"
-    #     values = {
-    #         'org.apache.struts.taglib.html.TOKEN': token,
-    #         # 'navButton2.x':"63",
-    #         # 'navButton2.y':"18",
-    #         'amountCommission': commission,
-    #         'miscSupportTypeId': "",
-    #         'waiverCode': waiverCode,
-    #         'certificateItem[0].value': certificateItem_0_value,
-    #         'certificateItem[1].value': certificateItems[0],
-    #         'certificateItem[2].value': certificateItems[1],
-    #         'certificateItem[3].value': certificateItems[2],
-    #         'error22010': "false",
-    #         'oldDocumentAirlineCodeFI': "",
-    #         'oldDocumentNumberFI': "",
-    #         'maskedFC': maskedFC,
-    #         'ETButton.x': "27",
-    #         'ETButton.y': "7"
-    #     }
-    #
-    #     data = urllib.urlencode(values)
-    #     headers = {
-    #         'Accept': self._accpet,
-    #         'Accept-Encoding': "gzip, deflate, br",
-    #         'Accept-Language': self._accept_language,
-    #         'Cache-Control': self._cache_control,
-    #         'Connection': self._connection,
-    #         'Content-Length': len(data),
-    #         'Content-Type': self._content_type,
-    #         'Host': "iar2.arccorp.com",
-    #         'Origin': "https://iar2.arccorp.com",
-    #         'Referer': "https://iar2.arccorp.com/IAR/modifyTran.do?seqNum=" + seqNum + "&documentNumber=" + documentNumber,
-    #         'Upgrade-Insecure-Requests': self._upgrade_insecure_requests,
-    #         'User-Agent': self._user_agent
-    #     }
-    #
-    #     try:
-    #         req = urllib2.Request(url, data, headers)
-    #         res = self._opener.open(req)
-    #         html = res.read()
-    #         self.__save_page("FinancialDetails", "FinancialDetails", html)
-    #         return html
-    #     except Exception as e:
-    #         self.logger.warning(e)
-
-    # def financialDetailsRemoveError(self, token, commission, waiverCode, maskedFC, seqNum, documentNumber,
-    #                                 certificates):
-    #     self.logger.debug("go to financialDetails")
-    #     if not commission:
-    #         commission = ""
-    #
-    #     certificateItems = []
-    #     for i in certificates:
-    #         if i[1] != "MJ" and i[1] != "M1":
-    #             certificateItems.append(i[1])
-    #
-    #     certificateItem_len = len(certificateItems)
-    #     for i in range(0, 3):
-    #         if i >= certificateItem_len:
-    #             certificateItems.append("")
-    #
-    #     if not waiverCode:
-    #         waiverCode = ""
-    #
-    #     if not maskedFC:
-    #         maskedFC = ""
-    #
-    #     url = "https://iar2.arccorp.com/IAR/financialDetails.do"
-    #     values = {
-    #         'org.apache.struts.taglib.html.TOKEN': token,
-    #         # 'navButton2.x':"63",
-    #         # 'navButton2.y':"18",
-    #         'amountCommission': commission,
-    #         'miscSupportTypeId': "",
-    #         'waiverCode': waiverCode,
-    #         'certificateItem[0].value': certificateItems[0],
-    #         'certificateItem[1].value': certificateItems[1],
-    #         'certificateItem[2].value': certificateItems[2],
-    #         'certificateItem[3].value': "",
-    #         'error22010': "false",
-    #         'oldDocumentAirlineCodeFI': "",
-    #         'oldDocumentNumberFI': "",
-    #         'maskedFC': maskedFC,
-    #         'ETButton.x': "27",
-    #         'ETButton.y': "7"
-    #     }
-    #
-    #     data = urllib.urlencode(values)
-    #     headers = {
-    #         'Accept': self._accpet,
-    #         'Accept-Encoding': "gzip, deflate, br",
-    #         'Accept-Language': self._accept_language,
-    #         'Cache-Control': self._cache_control,
-    #         'Connection': self._connection,
-    #         'Content-Length': len(data),
-    #         'Content-Type': self._content_type,
-    #         'Host': "iar2.arccorp.com",
-    #         'Origin': "https://iar2.arccorp.com",
-    #         'Referer': "https://iar2.arccorp.com/IAR/modifyTran.do?seqNum=" + seqNum + "&documentNumber=" + documentNumber,
-    #         'Upgrade-Insecure-Requests': self._upgrade_insecure_requests,
-    #         'User-Agent': self._user_agent
-    #     }
-    #     try:
-    #         req = urllib2.Request(url, data, headers)
-    #         res = self._opener.open(req)
-    #         html = res.read()
-    #         self.__save_page("FinancialDetails", documentNumber, html)
-    #         return html
-    #     except Exception as e:
-    #         self.logger.warning(e)
 
     def itineraryEndorsements(self, token, qc_tour_code, backOfficeRemarks, ticketDesignators):
         self.logger.debug("go to itineraryEndorsements")
@@ -1009,6 +813,20 @@ class MSSQL:
         self.conn.close()
         return rowcount
 
+    def ExecNonQuerys(self, sqls):
+        cur = self.__GetConnect()
+        rowcount = 0
+        for sql in sqls:
+            rowcount += cur.execute(sql).rowcount
+        self.conn.commit()
+        self.conn.close()
+        return rowcount
+
+    # def ExecNonQueryMany(self, values):
+    #     cur = self.__GetConnect()
+    #     cur.executemany("insert into test(id,name,age) values (?,?,?);", values)
+    #     self.conn.commit()
+    #     self.conn.close()
 
 class SendEmail:
     """docstring for SendEmail"""
