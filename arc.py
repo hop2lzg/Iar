@@ -1,6 +1,10 @@
-import os, urllib, urllib2
+import os
+import ssl
+import urllib
+import urllib2
 import re
 import json
+import time
 import datetime
 import logging
 import logging.config
@@ -10,8 +14,6 @@ from email.header import Header
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
-# from email.MIMEMultipart import MIMEMultipart
-# from email.MIMEBase import MIMEBase
 from email.utils import parseaddr, formataddr
 import smtplib
 from openpyxl import Workbook
@@ -35,45 +37,65 @@ class ArcModel:
         self._cookies = urllib2.HTTPCookieProcessor()
         self._opener = urllib2.build_opener(self._cookies)
 
-    # _home=_opener.open("https://www.arccorp.com")
-
     def __save_page(self, page, arcNumber, html):
         # f=open(page+'_'+datetime.datetime.now().strftime('%Y%m%d%H:%M:%S')+'.html','wb')
         path = 'html'
         if not os.path.exists(path):
             os.makedirs(path)
-        f = open(path + '\\' + page + '_' + arcNumber + '.html', 'wb')
-        try:
+
+        with open(path + '\\' + page + '_' + arcNumber + '.html', 'wb') as f:
             f.write(html)
-        finally:
-            f.close()
 
     def __save_csv(self, name, is_this_week, fileName, content):
         file_path = "day"
         if not is_this_week:
             file_path = "week"
-        if name == "mulingpeng":
+
+        if name == "mulingpeng" or name == "gttqc02" or name == "gttqc-it":
             name = "all"
+
         if name == "muling-yww":
             name = "yww"
+
         if name == "muling-tvo":
             name = "tvo"
+
         if name == "muling-aca":
             name = "aca"
 
         path = name + '\\' + file_path
         if not os.path.exists(path):
             os.makedirs(path)
-        f = open(path + '\\' + fileName, 'wb')
-        try:
+
+        with open(path + '\\' + fileName, 'wb') as f:
             f.write(content)
-        finally:
-            f.close()
+
+    def __try_request(self, req, max_try_num=2):
+        res = None
+        for tries in range(max_try_num):
+            try:
+                # self.logger.debug("Request start at %d times" % tries)
+                res = self._opener.open(req, timeout=30)
+                self.logger.debug("Request success at %d times" % tries)
+                break
+            except (urllib2.URLError, ssl.SSLError) as e:
+                if tries < (max_try_num - 1):
+                    self.logger.info("Request error at %d times, will try again after 2s." % tries)
+                    time.sleep(2)
+                    continue
+                else:
+                    self.logger.warning(e)
+            except Exception, e:
+                self.logger.critical(repr(e))
+                break
+
+        # self.logger.debug("TRY REQUEST OVER")
+        return res
 
     def login(self, name, password):
-        self.logger.debug("start home")
-        home = self._opener.open("https://www.arccorp.com")
-        self.logger.debug("login")
+        self.logger.debug("START HOME")
+        self._opener.open("https://www.arccorp.com", timeout=60)
+        self.logger.debug("LOGIN: %s" % name)
 
         values = {
             'userID': "",
@@ -100,46 +122,57 @@ class ArcModel:
         }
 
         req = urllib2.Request(url, data, headers)
-        try:
-            res = self._opener.open(req)
+        res = self.__try_request(req)
+        if res:
             html = res.read()
             self.__save_page('login', 'login', html)
             return html
-        except urllib2.URLError, e:
-            print e.code
-            self.logger.warning('login error')
-        except Exception, e:
-            self.logger.critical(e)
+
+    def execute_login(self, name, password, max_try_num=2):
+        is_login = False
+        for tries in range(max_try_num):
+            html = self.login(name, password)
+            if not html or (html.find('You are already logged into My ARC') < 0 and html.find('Account Settings :') < 0):
+                self.logger.error("LOGIN ERROR: %s, at %d times" % (name, tries))
+                time.sleep(1 * 60 * 3)
+                continue
+
+            is_login = True
+
+        return is_login
 
     def iar(self):
-        self.logger.debug("go to iar")
+        self.logger.debug("GO TO IAR")
         url = "https://iar2.arccorp.com/IAR/"
-        try:
-            res = self._opener.open(url)
+        res = self.__try_request(url)
+        if res:
             html = res.read()
             self.__save_page('iar', 'iar', html)
             return html
-        except urllib2.HTTPError, e:
-            self.logger.warning(e.code)
-        except urllib2.URLError, e:
-            self.logger.warning(e.reason)
-        except Exception, e:
-            self.logger.critical(e)
+
+        # try:
+        #     res = self._opener.open(url)
+        #     html = res.read()
+        #     self.__save_page('iar', 'iar', html)
+        #     return html
+        # except urllib2.HTTPError, e:
+        #     self.logger.warning(e.code)
+        # except urllib2.URLError, e:
+        #     self.logger.warning(e.reason)
+        # except Exception, e:
+        #     self.logger.critical(e)
 
     def listTransactions(self, ped, action, arcNumber):
-        self.logger.debug("go to listTransactions")
+        self.logger.debug("GO TO LIST TRANSACTIONS")
         url = "https://iar2.arccorp.com/IAR/listTransactions.do?ped=" + ped + "&action=" + action + "&arcNumber=" + arcNumber
-        try:
-            res = self._opener.open(url)
+        res = self.__try_request(url)
+        if res:
             html = res.read()
             self.__save_page("listTransactions", arcNumber, html)
             return html
-        except Exception, e:
-            print e
-            self.logger.error('listTransactions error')
 
     def get_csv(self, name, is_this_week, ped, action, arcNumber, token, from_date, to_date):
-        self.logger.debug("Download csv: " + arcNumber)
+        self.logger.debug("DOWNLOAD CSV: " + arcNumber)
         values = {
             'org.apache.struts.taglib.html.TOKEN': token,
             'arcNumber': arcNumber,
@@ -183,20 +216,16 @@ class ArcModel:
             'User-Agent': self._user_agent
         }
         req = urllib2.Request(url, data, headers)
-        try:
-            excel = self._opener.open(req)
-            # download_csv=urllib.urlretrieve(excel,'test.csv')
-            csv = excel.read()
-            # name,is_this_week,fileName,content
+        res = self.__try_request(req)
+        if res:
+            csv = res.read()
             if csv.find("<link") == -1:
                 self.__save_csv(name, is_this_week, arcNumber + '.csv', csv)
-        except urllib2.URLError, e:
-            # print arcNumber
-            # print e.reason
+        else:
             self.logger.warning('Download csv error :' + arcNumber)
 
     def search(self, ped, action, arcNumber, token, from_date, to_date, documentNumber):
-        self.logger.debug("search ticket")
+        self.logger.debug("SEARCH TICKET: %s" % documentNumber)
         values = {
             'org.apache.struts.taglib.html.TOKEN': token,
             'arcNumber': arcNumber,
@@ -219,7 +248,8 @@ class ArcModel:
             'list.x': '45',
             'list.y': '11',
             'printOption': '1',
-            'printaction': '0'}
+            'printaction': '0'
+        }
 
         url = "https://iar2.arccorp.com/IAR/listTransactions.do"
         data = urllib.urlencode(values)
@@ -239,17 +269,14 @@ class ArcModel:
             'User-Agent': self._user_agent
         }
         req = urllib2.Request(url, data, headers)
-        try:
-            res = self._opener.open(req)
+        res = self.__try_request(req)
+        if res:
             html = res.read()
             self.__save_page("search", "search", html)
             return html
-        except urllib2.URLError, e:
-            self.logger.error(e.reason)
-        # print e.reason
 
     def searchError(self, ped, action, arcNumber, token, from_date, to_date):
-        self.logger.debug("search ticket error")
+        self.logger.debug("SEARCH TICKET ERROR")
         values = {
             'org.apache.struts.taglib.html.TOKEN': token,
             'arcNumber': arcNumber,
@@ -293,17 +320,14 @@ class ArcModel:
             'User-Agent': self._user_agent
         }
         req = urllib2.Request(url, data, headers)
-        try:
-            res = self._opener.open(req)
+        res = self.__try_request(req)
+        if res:
             html = res.read()
             self.__save_page("search", arcNumber, html)
             return html
-        # logger.info(html)
-        except urllib2.URLError, e:
-            self.logger.error(e.reason)
 
     def modifyTran(self, seqNum, documentNumber):
-        self.logger.debug("go to modifyTran")
+        self.logger.debug("GO TO MODIFY TRAN")
         url = "https://iar2.arccorp.com/IAR/modifyTran.do?"
         values = {
             'seqNum': seqNum,
@@ -320,19 +344,16 @@ class ArcModel:
             'Upgrade-Insecure-Requests': self._upgrade_insecure_requests,
             'User-Agent': self._user_agent
         }
-        try:
-            req = urllib2.Request(url, data, headers)
-            res = self._opener.open(req)
+        req = urllib2.Request(url, data, headers)
+        res = self.__try_request(req)
+        if res:
             html = res.read()
             self.__save_page("modifyTran", "modifyTran", html)
             return html
-        except Exception as e:
-            self.logger.warning(e)
-        # print 'modifyTran error'
 
     def financialDetails(self, token, is_check_payment, commission, waiverCode, maskedFC, seqNum, documentNumber, tour_code,
                          qc_tour_code, certificates, certificate, agent_codes, is_et_button=False, is_check_update=False):
-        self.logger.debug("go to financialDetails")
+        self.logger.debug("GO TO FINANCIAL DETAILS")
         certificateItems = []
         if certificates:
             for i in certificates:
@@ -397,18 +418,15 @@ class ArcModel:
             'User-Agent': self._user_agent
         }
 
-        try:
-            req = urllib2.Request(url, data, headers)
-            res = self._opener.open(req)
+        req = urllib2.Request(url, data, headers)
+        res = self.__try_request(req)
+        if res:
             html = res.read()
             self.__save_page("FinancialDetails", "FinancialDetails", html)
             return html
-        except Exception as e:
-            self.logger.warning(e)
-
 
     def itineraryEndorsements(self, token, qc_tour_code, backOfficeRemarks, ticketDesignators):
-        self.logger.debug("go to itineraryEndorsements")
+        self.logger.debug("GO TO ITINERARY ENDORSEMENTS")
         url = "https://iar2.arccorp.com/IAR/itineraryEndorsements.do"
         if not backOfficeRemarks:
             backOfficeRemarks = ""
@@ -447,17 +465,16 @@ class ArcModel:
             'Upgrade-Insecure-Requests': self._upgrade_insecure_requests,
             'User-Agent': self._user_agent
         }
-        try:
-            req = urllib2.Request(url, data, headers)
-            res = self._opener.open(req)
+
+        req = urllib2.Request(url, data, headers)
+        res = self.__try_request(req)
+        if res:
             html = res.read()
             self.__save_page("ItineraryEndorsements", "ItineraryEndorsements", html)
             return html
-        except Exception as e:
-            self.logger.warning(e)
 
     def transactionConfirmation(self, token):
-        self.logger.debug("TransactionConfirmation")
+        self.logger.debug("TRANSACTION CONFIRMATION")
         url = "https://iar2.arccorp.com/IAR/transactionConfirmation.do"
         values = {
             'org.apache.struts.taglib.html.TOKEN': token,
@@ -482,18 +499,16 @@ class ArcModel:
             'User-Agent': self._user_agent
         }
 
-        try:
-            req = urllib2.Request(url, data, headers)
-            res = self._opener.open(req)
+        req = urllib2.Request(url, data, headers)
+        res = self.__try_request(req)
+        if res:
             html = res.read()
             self.__save_page("TransactionConfirmation", "TransactionConfirmation", html)
             return html
-        except Exception as e:
-            self.logger.warning(e)
 
     def iar_logout(self, ped, action, arcNumber):
         # print "iar logout Start"
-        self.logger.debug("Iar logout start")
+        self.logger.debug("IAR LOGOUT START")
         url = "https://iar2.arccorp.com/IAR/logout.do"
         headers = {
             'Accept': self._accpet,
@@ -506,13 +521,12 @@ class ArcModel:
             'User-Agent': self._user_agent
         }
         req = urllib2.Request(url, None, headers)
-        self._opener.open(req)
+        self.__try_request(req)
         self.logger.debug("Iar logout end")
-        # print "iar logout end"
 
     def logout(self):
         # print 'Logout Start'
-        self.logger.debug('Logout start')
+        self.logger.debug('LOGOUT START')
         headers = {
             'Accept': self._accpet,
             'Accept-Encoding': 'gzip, deflate, sdch, br',
@@ -526,9 +540,8 @@ class ArcModel:
         }
         url = "https://myarc.arccorp.com/PortalApp/ARCGateway.portal?_nfpb=true&_st=&_pageLabel=ARC_Login&_name=logout&_nfls=false"
         req = urllib2.Request(url, None, headers)
-        self._opener.open(req)
+        self.__try_request(req)
         self.logger.debug("Logout end")
-        # print 'Logout end'
 
     def store(self, data):
         path = 'file'
@@ -548,7 +561,7 @@ class ArcModel:
             data = json.load(json_file)
             return data
 
-    def convertStatus(self, data):
+    def convertStatus(self, data, is_remove_error=False):
         status = 'No'
         is_updated = 'Fail'
 
@@ -560,6 +573,10 @@ class ArcModel:
             status = 'CK'
         elif data['Status'] == 4:
             status = 'Pass'
+
+        if is_remove_error:
+            is_updated = ""
+            return status, is_updated
 
         if data['Status'] == 1 or data['Status'] == 3:
             if "isPutError" not in data or not data['isPutError']:
@@ -738,6 +755,36 @@ class Regex:
     def itineraryEndorsements(self, html):
         return self.__token(html)
 
+    def search_error(self, html, entry_date, error_codes):
+        pattern = re.compile(r'''<tr align=right class="row[01]"> 
+          <td width="3%"  align="center"> .+? 
+          </td>
+          <td width="6%" align="center">
+				 <!-- defect #810-->
+				 <input type="checkbox" name="checkBoxes" value='(\d{10}):(\d{10})'  />  
+          <td  width="5%" align="center">E 
+          </td>
+          <td width="6%"align="center">(\d{3}) 
+          </td>
+        <td width="12%" align="left">
+        
+            <a href="/IAR/modifyTran\.do\?seqNum=.+?</a>
+                
+        
+		</td>
+          <td width="14%" align="left">.+?      
+          </td>         
+          <td width="21%" align="left">.+? 
+          </td>
+          <td width="16%" align="left">(''' + error_codes + ''') 
+          </td>
+          <td width="10%"  align="center">(''' + entry_date + ''') 
+          </td>
+          <td width="10%"  align="center" nowrap>.+? 
+          </td>
+        </tr>''')
+        return self.__public(pattern, html, True)
+
     def searchError(self, html, entry_date):
         pattern = re.compile(r'''<tr align=right class="row[01]"> 
           <td width="3%"  align="center"> .+? 
@@ -827,6 +874,7 @@ class MSSQL:
     #     cur.executemany("insert into test(id,name,age) values (?,?,?);", values)
     #     self.conn.commit()
     #     self.conn.close()
+
 
 class SendEmail:
     """docstring for SendEmail"""

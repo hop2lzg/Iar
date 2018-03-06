@@ -4,89 +4,6 @@ import sys
 import datetime
 
 
-# def execute(post, action, token, from_date, to_date):
-#     arcNumber = post['ArcNumber']
-#     documentNumber = post['Ticket']
-#     date = post['IssueDate']
-#     commission = post['QCComm']
-#     tour_code = ""
-#     if post['TourCode']:
-#         tour_code = post['TourCode']
-#     qc_tour_code = ""
-#     if post['QCTourCode']:
-#         qc_tour_code = post['QCTourCode']
-#
-#     is_check_payment = False
-#
-#     if post['Status'] == 3:
-#         is_check_payment = True
-#
-#     date_time = datetime.datetime.strptime(date, '%Y-%m-%d')
-#     ped = (date_time + datetime.timedelta(days=(6 - date_time.weekday()))).strftime('%d%b%y').upper()
-#
-#     logger.info("UPDATING PED: " + ped + " arc: " + arcNumber + " tkt: " + documentNumber)
-#
-#     search_html = arc_model.search(ped, action, arcNumber, token, from_date, to_date, documentNumber)
-#     if not search_html:
-#         return
-#     seqNum, documentNumber = arc_regex.search(search_html)
-#     if not seqNum:
-#         return
-#     modify_html = arc_model.modifyTran(seqNum, documentNumber)
-#     if not modify_html:
-#         return
-#
-#     is_void_pass = arc_regex.check_status(modify_html)
-#     if is_void_pass == 2:
-#         post['Status'] = 2
-#         return
-#     elif is_void_pass == 1:
-#         post['Status'] = 4
-#         return
-#     # voided_index = modify_html.find('Document is being displayed as view only')
-#     # if voided_index >= 0:
-#     #     post['Status'] = 2
-#     #     return
-#
-#     token, maskedFC, arc_commission, waiverCode, certificates = arc_regex.modifyTran(modify_html)
-#     if not token:
-#         return
-#
-#     post['ArcComm'] = arc_commission
-#     financialDetails_html = arc_model.financialDetails(token, is_check_payment, commission, waiverCode, maskedFC,
-#                                                        seqNum, documentNumber, tour_code, qc_tour_code, certificates,
-#                                                        "MJ", agent_codes, is_check_update=False)
-#     # financialDetails_html = arc_model.financialDetails(token, is_check, commission, waiverCode, maskedFC, seqNum,
-#     #                                                    documentNumber, tour_code, qc_tour_code, certificates)
-#
-#     if not financialDetails_html:
-#         return
-#
-#     token, arc_tour_code, backOfficeRemarks, ticketDesignators = arc_regex.financialDetails(financialDetails_html)
-#     if not token:
-#         return
-#     post['ArcTourCode'] = arc_tour_code
-#
-#     if ticketDesignators:
-#         list_ticketDesignator = []
-#         for ticketDesignator in ticketDesignators:
-#             list_ticketDesignator.append(ticketDesignator[1])
-#         post['TicketDesignator'] = '/'.join(list_ticketDesignator)
-#     # if tour_code != qc_tour_code:
-#     #     itineraryEndorsements_html = arc_model.itineraryEndorsements(token, qc_tour_code, backOfficeRemarks,
-#     #                                                                  ticketDesignators)
-#     #     if not itineraryEndorsements_html:
-#     #         return
-#     #     token = arc_regex.itineraryEndorsements(itineraryEndorsements_html)
-#     # if token:
-#     #     transactionConfirmation_html = arc_model.transactionConfirmation(token)
-#     #     if transactionConfirmation_html:
-#     #         if transactionConfirmation_html.find('Document has been modified') >= 0:
-#     #             post['Status'] = 1
-#     #         else:
-#     #             logger.warning('update may be error')
-
-
 def check(post, action, token, from_date, to_date):
     arcNumber = post['ArcNumber']
     documentNumber = post['Ticket']
@@ -127,13 +44,6 @@ def check(post, action, token, from_date, to_date):
     elif is_void_pass == 1:
         post['Status'] = 4
 
-    # voided_index = modify_html.find('Document is being displayed as view only')
-    # if voided_index >= 0:
-    #     post['Status'] = 4
-    #     if modify_html.find('Unable to modify a voided document') >= 0:
-    #         post['Status'] = 2
-    #         return
-
     token, maskedFC, arc_commission, waiverCode, certificates = arc_regex.modifyTran(modify_html)
     if not token:
         return
@@ -141,8 +51,7 @@ def check(post, action, token, from_date, to_date):
     financialDetails_html = arc_model.financialDetails(token, is_check_payment, commission, waiverCode, maskedFC,
                                                        seqNum, documentNumber, tour_code, qc_tour_code, certificates,
                                                        "MJ", agent_codes, is_check_update=True)
-    # financialDetails_html = arc_model.financialDetails(token, is_check, commission, waiverCode, maskedFC, seqNum,
-    #                                                    documentNumber, tour_code, qc_tour_code, certificates, True)
+
     if not financialDetails_html:
         return
 
@@ -316,12 +225,11 @@ for i in rows:
 
 def run(user_name, datas):
     # ----------------------login
-    logger.debug("Run:" + user_name)
+    logger.debug(user_name)
     password = conf.get("geoff", user_name)
-    login_html = arc_model.login(user_name, password)
-    if login_html.find('You are already logged into My ARC') < 0 and login_html.find('Account Settings :') < 0:
-        logger.error('login error: '+user_name)
+    if not arc_model.execute_login(user_name, password):
         return
+
     # -------------------go to IAR
     iar_html = arc_model.iar()
     if not iar_html:
@@ -346,16 +254,8 @@ def run(user_name, datas):
         return
     try:
         for data in datas:
-            # print data
-            # if data['Status'] != 0 and data['Status'] != 3:
-            #     continue
-            # execute(data, action, token, from_date, to_date)
-
             check(data, action, token, from_date, to_date)
-            # if data['Status'] == 1:
-            #     check(data, action, token, from_date, to_date)
     except Exception as ex:
-        # print e
         logger.critical(ex)
     # finally:
     # 	arc_model.store(list_data_sql)

@@ -36,6 +36,13 @@ def execute(post, action, token, from_date, to_date):
     # if post['Status'] == 3:
     #     is_check_payment = True
 
+    is_et_button = False
+    if post['FareType'] and (post['FareType'] == "BULK" or post['FareType'] == "SR") and not post['QCTourCode']:
+        is_et_button = True
+
+    if tour_code == qc_tour_code:
+        is_et_button = True
+
     date_time = datetime.datetime.strptime(date, '%Y-%m-%d')
     ped = (date_time + datetime.timedelta(days=(6 - date_time.weekday()))).strftime('%d%b%y').upper()
     logger.info("UPDATING PED: " + ped + " arc: " + arcNumber + " tkt: " + documentNumber)
@@ -58,17 +65,12 @@ def execute(post, action, token, from_date, to_date):
     elif is_void_pass == 1:
         post['Status'] = 4
         return
-        # voided_index = modify_html.find('Document is being displayed as view only')
-    # if voided_index >= 0:
-    #     post['Status'] = 2
-    #     return
 
     token, maskedFC, arc_commission, waiverCode, certificates = arc_regex.modifyTran(modify_html)
     if not token:
         return
 
     post['ArcComm'] = arc_commission
-    is_et_button = False
     agent_code = "MJ"
     logger.info("ARC commission: %s  updating commission: %s" % (arc_commission, commission))
     arc_commission_is_exception, arc_commission_float = convert_to_float(arc_commission)
@@ -76,7 +78,12 @@ def execute(post, action, token, from_date, to_date):
     if arc_commission_is_exception or commission_is_exception or (post['updatedByRole'] != "AG" and arc_commission_float > commission_float):
         agent_code = "M2"
         is_et_button = True
-        commission = arc_commission
+        if arc_commission:
+            logger.debug(modify_html)
+            commission = arc_commission
+        else:
+            commission = post["Comm"]
+
         post['isPutError'] = True
 
     financialDetails_html = arc_model.financialDetails(token, is_check_payment, commission, waiverCode, maskedFC, seqNum,
@@ -97,7 +104,7 @@ def execute(post, action, token, from_date, to_date):
                 list_ticketDesignator.append(ticketDesignator[1])
             post['TicketDesignator'] = '/'.join(list_ticketDesignator)
 
-        if tour_code != qc_tour_code:
+        if not is_et_button:
             itineraryEndorsements_html = arc_model.itineraryEndorsements(token, qc_tour_code, backOfficeRemarks,
                                                                          ticketDesignators)
             if not itineraryEndorsements_html:
@@ -292,7 +299,7 @@ declare @start date
 declare @end date
 set @start=dateadd(day,-3,getdate())
 set @end=getdate()
-select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
+select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,t.FareType,
 t.Comm,t.TourCode,qc.AGComm UpdatedComm,qc.AGTourCode UpdatedTourCode,'AG' updatedByRole,iar.Id IarId from Ticket t
 left join TicketQC qc
 on t.Id=qc.TicketId
@@ -307,7 +314,7 @@ and (iar.Commission is null or iar.Commission<>qc.AGComm or iar.TourCode<>qc.AGT
 and t.IssueDate>=@start
 and t.IssueDate<@end
 union
-select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
+select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,t.FareType,
 t.Comm,t.TourCode,qc.OPComm UpdatedComm,qc.OPTourCode UpdatedTourCode,'OP' updatedByRole,iar.Id IarId from Ticket t
 left join TicketQC qc
 on t.Id=qc.TicketId
@@ -357,17 +364,17 @@ for i in rows:
     v['updatedByRole'] = i.updatedByRole
     v['isPutError'] = False
     v['hasPutError'] = False
+    v['FareType'] = i.FareType
     list_data.append(v)
 
 
 def run(user_name, datas):
     # ----------------------login
-    logger.debug("Run:" + user_name)
+    logger.debug(user_name)
     password = conf.get("geoff", user_name)
-    login_html = arc_model.login(user_name, password)
-    if login_html.find('You are already logged into My ARC') < 0 and login_html.find('Account Settings :') < 0:
-        logger.error('login error: '+user_name)
+    if not arc_model.execute_login(user_name, password):
         return
+
     # -------------------go to IAR
     iar_html = arc_model.iar()
     if not iar_html:

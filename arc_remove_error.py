@@ -11,19 +11,21 @@ logger.debug('--------------<<<START>>>--------------')
 conf = ConfigParser.ConfigParser()
 conf.read('../iar_update.conf')
 agent_codes = conf.get("certificate", "agentCodes").split(',')
+error_codes = conf.get("error", "errorCodes")
 
 
 def run(user_name, arc_numbers, ped, action):
     # ----------------------login
+    logger.debug(user_name)
     password = conf.get("login", user_name)
-    login_html = arc_model.login(user_name, password)
-    if login_html.find('You are already logged into My ARC') < 0 and login_html.find('Account Settings :') < 0:
-        logger.error('login error: '+user_name)
+
+    if not arc_model.execute_login(user_name, password):
         return
+
     # -------------------go to IAR
     iar_html = arc_model.iar()
     if not iar_html:
-        logger.error('iar error')
+        logger.error('GO TO IAR ERROR')
         return
 
     last_arc_number = ""
@@ -53,17 +55,12 @@ def execute(data):
         data['Status'] = 4
         return
 
-    # voided_index = modify_html.find('Document is being displayed as view only')
-    # if voided_index >= 0:
-    #     data['status'] = 2
-    #     return
-
     token, maskedFC, commission, waiverCode, certificates = arc_regex.modifyTran(modify_html)
     if commission is None:
         logger.debug("ARC COMM IS NONE, TKT.# %s, HTML: %s" % (documentNumber, modify_html))
         return
 
-    logger.debug("regex commission: %s" % commission)
+    logger.debug("Regex commission: %s" % commission)
     if not token or not maskedFC:
         return
 
@@ -78,7 +75,7 @@ def execute(data):
         transactionConfirmation_html = arc_model.transactionConfirmation(token)
         if transactionConfirmation_html:
             if transactionConfirmation_html.find('Document has been modified') >= 0:
-                data['status'] = 1
+                data['Status'] = 1
             else:
                 logger.warning('Document can not modify')
 
@@ -111,10 +108,11 @@ def remove(today, weekday, ped, action, arc_number):
     if list_entry_date:
         entry_date = '|'.join(list_entry_date)
 
-    list_regex_search = arc_regex.searchError(search_html, entry_date)
+    # list_regex_search = arc_regex.searchError(search_html, entry_date)
+    list_regex_search = arc_regex.search_error(search_html, entry_date, error_codes)
 
     if not list_regex_search:
-        logger.warning('regex seach error')
+        logger.warning('Regex search error')
         return
 
     logger.info(list_regex_search)
@@ -125,7 +123,7 @@ def remove(today, weekday, ped, action, arc_number):
         v['documentNumber'] = search[0]
         v['date'] = search[4]
         v['arcNumber'] = arc_number
-        v['status'] = 0
+        v['Status'] = 0
         # print v
         execute(v)
 
@@ -147,7 +145,7 @@ try:
         arc_numbers = conf.get(section, option).split(',')
         account_id = "muling-"
         if option == "all":
-            account_id = "mulingpeng"
+            account_id = conf.get("accounts", "all")
         else:
             account_id = account_id + option
         run(account_id, arc_numbers, ped, action)
@@ -162,7 +160,7 @@ mail_subject = conf.get("email", "subject") + " remove error"
 try:
     body = ''
     for i in list_data:
-        status, updated = arc_model.convertStatus(i)
+        status, updated = arc_model.convertStatus(i, is_remove_error=True)
 
         body = body + '''<tr>
         <td>%s</td>

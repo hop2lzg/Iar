@@ -21,6 +21,13 @@ def execute(post, action, token, from_date, to_date):
     if post['Status'] == 3:
         is_check_payment = True
 
+    is_et_button = False
+    if post['FareType'] and (post['FareType'] == "BULK" or post['FareType'] == "SR") and not post['QCTourCode']:
+        is_et_button = True
+
+    if tour_code == qc_tour_code:
+        is_et_button = True
+
     date_time = datetime.datetime.strptime(date, '%Y-%m-%d')
     ped = (date_time + datetime.timedelta(days=(6 - date_time.weekday()))).strftime('%d%b%y').upper()
     logger.info("UPDATING PED: " + ped + " arc: " + arcNumber + " tkt: " + documentNumber)
@@ -43,10 +50,6 @@ def execute(post, action, token, from_date, to_date):
     elif is_void_pass == 1:
         post['Status'] = 4
         return
-        # voided_index = modify_html.find('Document is being displayed as view only')
-    # if voided_index >= 0:
-    #     post['Status'] = 2
-    #     return
 
     token, maskedFC, arc_commission, waiverCode, certificates = arc_regex.modifyTran(modify_html)
     if arc_commission is None:
@@ -59,7 +62,7 @@ def execute(post, action, token, from_date, to_date):
     post['ArcComm'] = arc_commission
     financialDetails_html = arc_model.financialDetails(token, is_check_payment, commission, waiverCode, maskedFC,
                                                        seqNum, documentNumber, tour_code, qc_tour_code, certificates,
-                                                       "MJ", agent_codes, is_check_update=False)
+                                                       "MJ", agent_codes, is_et_button, is_check_update=False)
 
     if not financialDetails_html:
         return
@@ -74,7 +77,8 @@ def execute(post, action, token, from_date, to_date):
         for ticketDesignator in ticketDesignators:
             list_ticketDesignator.append(ticketDesignator[1])
         post['TicketDesignator'] = '/'.join(list_ticketDesignator)
-    if tour_code != qc_tour_code:
+
+    if not is_et_button:
         itineraryEndorsements_html = arc_model.itineraryEndorsements(token, qc_tour_code, backOfficeRemarks,
                                                                      ticketDesignators)
         if not itineraryEndorsements_html:
@@ -127,10 +131,6 @@ def check(post, action, token, from_date, to_date):
         return
     elif is_void_pass == 1:
         post['Status'] = 4
-        # voided_index = modify_html.find('Document is being displayed as view only')
-    # if voided_index >= 0:
-    #     post['Status'] = 2
-    #     return
 
     token, maskedFC, arc_commission, waiverCode, certificates = arc_regex.modifyTran(modify_html)
     if not token:
@@ -139,8 +139,7 @@ def check(post, action, token, from_date, to_date):
     financialDetails_html = arc_model.financialDetails(token, is_check_payment, commission, waiverCode, maskedFC,
                                                        seqNum, documentNumber, tour_code, qc_tour_code, certificates,
                                                        "MJ", agent_codes, is_check_update=True)
-    # financialDetails_html = arc_model.financialDetails(token, is_check, commission, waiverCode, maskedFC, seqNum,
-    #                                                    documentNumber, tour_code, qc_tour_code, certificates, True)
+
     if not financialDetails_html:
         return
 
@@ -206,9 +205,7 @@ def run(user_name, datas):
     # ----------------------login
     logger.debug(user_name)
     password = conf.get("login", user_name)
-    login_html = arc_model.login(user_name, password)
-    if login_html.find('You are already logged into My ARC') < 0 and login_html.find('Account Settings :') < 0:
-        logger.error('login error: '+user_name)
+    if not arc_model.execute_login(user_name, password):
         return
 
     # -----------------go to IAR
@@ -272,7 +269,7 @@ ms = arc.MSSQL(server=sql_server, db=sql_database, user=sql_user, pwd=sql_pwd)
 sql = ('''declare @t date
 set @t=DATEADD(DAY,-1,GETDATE())
 select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,t.Comm,QCComm,t.TourCode,
-QCTourCode,PaymentType,iu.Id IarId from Ticket t
+QCTourCode,PaymentType,t.FareType,iu.Id IarId from Ticket t
 left join IarUpdate iu
 on t.Id=iu.TicketId
 where Status not like '[NV]%'
@@ -325,6 +322,8 @@ if not list_data:
         v['ArcId'] = row.IarId
         if row.PaymentType != 'C':
             v['Status'] = 3
+
+        v['FareType'] = row.FareType
         list_data.append(v)
 
 try:
@@ -338,7 +337,7 @@ try:
 
         account_id = "muling-"
         if option == "all":
-            account_id = "mulingpeng"
+            account_id = conf.get("accounts", "all")
         else:
             account_id = account_id + option
 

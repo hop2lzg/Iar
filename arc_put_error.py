@@ -35,17 +35,18 @@ def execute(post, action, token, from_date, to_date):
     elif is_void_pass == 1:
         post['Status'] = 4
         return
-    # voided_index = modify_html.find('Document is being displayed as view only')
-    # if voided_index >= 0:
-    #     post['Status'] = 2
-    #     return
 
     token, maskedFC, arc_commission, waiverCode, certificates = arc_regex.modifyTran(modify_html)
+    logger.debug("regex commission: %s" % arc_commission)
+
+    if error_code == 'AG-Agree':
+        logger.debug("update AG-Agree commission: %s" % post['Commission'])
+        arc_commission = post['Commission']
+
     if arc_commission is None:
         logger.debug("ARC COMM IS NONE, TKT.# %s, HTML: %s" % (documentNumber, modify_html))
         return
 
-    logger.debug("regex commission: %s" % arc_commission)
     if not token:
         return
 
@@ -126,6 +127,19 @@ where td.insertDateTime>=DATEADD(day,-7,getdate())
 and td.isARCUpdated=0
 and (iar.IsUpdated is null or iar.IsUpdated=0)
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
+union
+select t.Id,t.[SID],t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,PaymentType,
+CASE WHEN qc.OPComm is null THEN t.QCComm
+ELSE qc.OPComm END Comm
+,'AG-Agree' ErrorCode,iar.Id iarId from Ticket t
+right join TicketQC qc
+on t.id=qc.TicketId
+left join IarUpdate iar
+on t.Id=iar.TicketId
+where qc.AGDate>=DATEADD(day,-3,getdate())
+and qc.AGStatus=1
+and (iar.Id is null or iar.IsPutError=0)
+and (iar.AuditorStatus is null or iar.AuditorStatus=0)
 order by ArcNumber,Ticket
 ''')
 
@@ -146,7 +160,9 @@ if not list_data:
         v['Status'] = 0
         v['ErrorCode'] = row.ErrorCode
         v['IarId'] = row.iarId
-        v['Commission'] = str(row.Comm)
+        v['Commission'] = None
+        if row.Comm:
+            v['Commission'] = str(row.Comm)
         # if row.PaymentType != 'C':
         #     v['Status'] = 3
 
@@ -154,11 +170,11 @@ if not list_data:
 
 
 def run(user_name, datas):
-    # #---------------------------login
+    # ----------------------login
+    logger.debug(user_name)
     password = conf.get("login", user_name)
-    login_html = arc_model.login(user_name, password)
-    if login_html.find('You are already logged into My ARC') < 0 and login_html.find('Account Settings :') < 0:
-        logger.error('login error: '+user_name)
+
+    if not arc_model.execute_login(user_name, password):
         return
 
     # -------------------go to IAR
@@ -228,15 +244,11 @@ def insert(datas):
         # if data['Status'] == 1:
         #     result = 1
         if not data['IarId']:
-            sqls.append('''insert into IarUpdate(Id,TicketId,channel) values (newid(),'%s',4);''' % (
+            sqls.append('''insert into IarUpdate(Id,TicketId,channel,IsPutError) values (newid(),'%s',4,1);''' % (
                 data['Id']))
-            # insert_sql = insert_sql + '''insert into IarUpdate(Id,TicketId,channel) values (newid(),'%s',4);''' % (
-            #     data['Id'])
         else:
-            sqls.append('''update IarUpdate set channel=4 where Id='%s';''' % (
+            sqls.append('''update IarUpdate set channel=4,IsPutError=1 where Id='%s';''' % (
                 data['IarId']))
-            # insert_sql = insert_sql + '''update IarUpdate set channel=4 where Id='%s';''' % (
-            #     data['IarId'])
 
     if not sqls:
         logger.warn("Insert or update no data")
@@ -262,7 +274,7 @@ try:
             continue
         account_id = "muling-"
         if option == "all":
-            account_id = "mulingpeng"
+            account_id = conf.get("accounts", "all")
         else:
             account_id = account_id + option
         run(account_id, list_data_account)
