@@ -10,12 +10,14 @@ def execute(post, action, token, from_date, to_date):
     date = post['IssueDate']
     error_code = post['ErrorCode']
     is_check_payment = False
+    updating_commission = post['Commission']
     # if post['Status'] == 3:
     #     is_check_payment = True
 
     date_time = datetime.datetime.strptime(date, '%Y-%m-%d')
     ped = (date_time+datetime.timedelta(days=(6-date_time.weekday()))).strftime('%d%b%y').upper()
-    logger.info("PED: "+ped+" arc: "+arcNumber+" tkt: "+documentNumber)
+    # logger.info("###### PED: "+ped+" ARC: "+arcNumber+" TKT: "+documentNumber)
+    logger.info("###### PED: %s, ARC: %s, TKT: %s, ERROR: %s." % (ped, arcNumber, documentNumber, error_code))
     search_html = arc_model.search(ped, action, arcNumber, token, from_date, to_date, documentNumber)
     if not search_html:
         return
@@ -37,22 +39,28 @@ def execute(post, action, token, from_date, to_date):
         return
 
     token, maskedFC, arc_commission, waiverCode, certificates = arc_regex.modifyTran(modify_html)
-    logger.debug("regex commission: %s" % arc_commission)
-
-    if error_code == 'AG-Agree':
-        logger.debug("update AG-Agree commission: %s" % post['Commission'])
-        arc_commission = post['Commission']
+    logger.debug("REGEX COMMISSION: %s" % arc_commission)
 
     if arc_commission is None:
         logger.debug("ARC COMM IS NONE, TKT.# %s, HTML: %s" % (documentNumber, modify_html))
         return
 
+    if error_code == 'AG-Agree':
+        logger.debug("AG-Agree commission: %s" % updating_commission)
+        arc_commission = updating_commission
+    elif error_code == "QC-PROFIT":
+        logger.debug("QC-PROFIT TKT: %s, ARC: %s" % (documentNumber, arcNumber))
+
     if not token:
         return
 
     if not arc_commission:
-        arc_commission = post['Commission']
+        arc_commission = updating_commission
 
+    if arc_commission is None:
+        return
+
+    logger.debug("Updating commission: %s, ERROR CODE: %s" % (arc_commission, error_code))
     financialDetails_html = arc_model.financialDetails(token, is_check_payment, arc_commission, waiverCode, maskedFC,
                                                        seqNum, documentNumber, "", "", certificates, error_code,
                                                        agent_codes, is_et_button=True)
@@ -88,7 +96,7 @@ sql_pwd = conf.get("sql", "pwd")
 ms = arc.MSSQL(server=sql_server, db=sql_database, user=sql_user, pwd=sql_pwd)
 sql = ('''declare @t date
 set @t=DATEADD(DAY,-1,GETDATE())
-select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'M1' ErrorCode,iar.Id iarId from Ticket t
+select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-ERROR' ErrorCode,iar.Id iarId from Ticket t
 left join IarUpdate iar
 on t.Id=iar.TicketId
 where Status not like '[NV]%'
@@ -113,7 +121,8 @@ and TicketNumber not like '54486%'
 and TicketNumber not like '8377%' 
 and TicketNumber not like '83786%'
 and TicketNumber not like '9577%' 
-and TicketNumber not like '95786%')
+and TicketNumber not like '95786%'
+and TicketNumber not like '890%')
 or 
 (TicketNumber like '1577%' or TicketNumber like '15786%'
 or ((TicketNumber like '7817%' or TicketNumber like '78186%') and ISNULL(McoNumber,'')='')))
@@ -140,6 +149,31 @@ where qc.AGDate>=DATEADD(day,-3,getdate())
 and qc.AGStatus=1
 and (iar.Id is null or iar.IsPutError=0)
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
+union
+select aa.Id,aa.[SID],aa.TicketNumber,aa.Ticket,aa.IssueDate,aa.ArcNumber,aa.PaymentType,
+aa.Comm,aa.ErrorCode,aa.iarId from (
+select t.Id,t.[SID],t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,PaymentType,
+case when iar.Commission is null then t.Comm else iar.Commission end Comm,
+t.Selling - t.Total + case when iar.Commission is null then t.Comm else iar.Commission end Profit,
+t.Base
+,'QC-PROFIT' ErrorCode,iar.Id iarId from [CollectData].[dbo].Ticket t
+left join [CollectData].[dbo].TicketQC qc
+on t.Id=qc.TicketId
+left join IarUpdate iar
+on t.Id=iar.TicketId
+--where t.CreateDate>='20180305' and t.CreateDate<'20180306'
+where t.CreateDate>=@t and t.CreateDate<DATEADD(DAY,1,@t)
+and t.[Status] not like '[NV]%'
+and (t.TicketType is null or t.TicketType<>'EX')
+and t.Comm=0
+and t.FareType in ('SR','BULK')
+and qc.OPStatus=14
+and iar.isPutError=0
+and iar.AuditorStatus=0
+and t.Selling>0
+) aa
+where aa.Profit<0
+and -aa.Profit > Base*0.05
 order by ArcNumber,Ticket
 ''')
 
@@ -161,7 +195,7 @@ if not list_data:
         v['ErrorCode'] = row.ErrorCode
         v['IarId'] = row.iarId
         v['Commission'] = None
-        if row.Comm:
+        if row.Comm is not None:
             v['Commission'] = str(row.Comm)
         # if row.PaymentType != 'C':
         #     v['Status'] = 3
@@ -232,7 +266,6 @@ def update(datas):
 def insert(datas):
     if not datas:
         return
-    # insert_sql = ''
 
     ids = []
     sqls = []
@@ -240,9 +273,7 @@ def insert(datas):
         if data['Id'] in ids:
             continue
         ids.append(data['Id'])
-        # result = 0
-        # if data['Status'] == 1:
-        #     result = 1
+
         if not data['IarId']:
             sqls.append('''insert into IarUpdate(Id,TicketId,channel,IsPutError) values (newid(),'%s',4,1);''' % (
                 data['Id']))
@@ -257,7 +288,7 @@ def insert(datas):
     logger.info("".join(sqls))
     rowcount = ms.ExecNonQuerys(sqls)
     if rowcount != len(sqls):
-        logger.warn("update:%s, updated:%s" % (len(sqls), rowcount))
+        logger.warn("updating:%s, updated:%s" % (len(sqls), rowcount))
 
     if rowcount > 0:
         logger.info('insert and update success')

@@ -62,7 +62,7 @@ def execute(post, action, token, from_date, to_date):
     post['ArcComm'] = arc_commission
     financialDetails_html = arc_model.financialDetails(token, is_check_payment, commission, waiverCode, maskedFC,
                                                        seqNum, documentNumber, tour_code, qc_tour_code, certificates,
-                                                       "MJ", agent_codes, is_et_button, is_check_update=False)
+                                                       "QC-AUTO", agent_codes, is_et_button, is_check_update=False)
 
     if not financialDetails_html:
         return
@@ -138,7 +138,7 @@ def check(post, action, token, from_date, to_date):
     post['ArcCommUpdated'] = arc_commission
     financialDetails_html = arc_model.financialDetails(token, is_check_payment, commission, waiverCode, maskedFC,
                                                        seqNum, documentNumber, tour_code, qc_tour_code, certificates,
-                                                       "MJ", agent_codes, is_check_update=True)
+                                                       "QC-AUTO", agent_codes, is_check_update=True)
 
     if not financialDetails_html:
         return

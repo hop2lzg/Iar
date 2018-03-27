@@ -1,6 +1,7 @@
 import arc
 import ConfigParser
 import datetime
+import time
 
 
 arc_model = arc.ArcModel("arc remove error")
@@ -12,6 +13,48 @@ conf = ConfigParser.ConfigParser()
 conf.read('../iar_update.conf')
 agent_codes = conf.get("certificate", "agentCodes").split(',')
 error_codes = conf.get("error", "errorCodes")
+
+sql_server = conf.get("sql", "server")
+sql_database = conf.get("sql", "database")
+sql_user = conf.get("sql", "user")
+sql_pwd = conf.get("sql", "pwd")
+ms = arc.MSSQL(server=sql_server, db=sql_database, user=sql_user, pwd=sql_pwd)
+
+
+def read_ticket(ticket_number):
+    commission = ""
+    sql = ('''
+    select t.TicketNumber,t.IssueDate,t.Comm,t.QCComm,t.QCStatus,qc.OPStatus,qc.OPComm,qc.AGStatus,qc.AGComm,iar.AuditorStatus,iar.Commission from Ticket t
+left join TicketQC qc
+on t.Id=qc.TicketId
+left join IarUpdate iar
+on t.id=iar.TicketId
+where TicketNumber like ''' + "'" + ticket_number + '''%'
+order by t.IssueDate
+    ''')
+    rows = ms.ExecQuery(sql)
+    if len(rows) == 0:
+        return commission
+
+    for row in rows:
+        commission = str(row["Comm"])
+        auditor_status = row["AuditorStatus"]
+        agent_status = row["AGStatus"]
+        op_status = row["OPStatus"]
+        if auditor_status is not None and auditor_status != 0 and row["Commission"] is not None:
+            commission = str(row["Commission"])
+        elif agent_status is not None and agent_status != 0:
+            if agent_status == 1 and row["OPComm"] is not None:
+                commission = str(row["OPComm"])
+            elif agent_status == 3 and row["AGComm"] is not None:
+                commission = str(row["AGComm"])
+        elif op_status is not None and op_status == 2 and row["OPComm"] is not None:
+            commission = str(row["OPComm"])
+
+    if not commission:
+        commission = "0"
+
+    return commission
 
 
 def run(user_name, arc_numbers, ped, action):
@@ -56,16 +99,19 @@ def execute(data):
         return
 
     token, maskedFC, commission, waiverCode, certificates = arc_regex.modifyTran(modify_html)
+    logger.debug("Regex commission: %s" % commission)
+    commission = read_ticket(data["ticketNumber"])
+    time.sleep(2)
     if commission is None:
         logger.debug("ARC COMM IS NONE, TKT.# %s, HTML: %s" % (documentNumber, modify_html))
         return
 
-    logger.debug("Regex commission: %s" % commission)
     if not token or not maskedFC:
         return
 
+    logger.debug("Updating ticket: %s, commission: %s." % (data["ticketNumber"], commission))
     financialDetails_html = arc_model.financialDetails(token, False, commission, waiverCode, maskedFC,
-                                                       seqNum, documentNumber, "", "", certificates, "", agent_codes,
+                                                       seqNum, documentNumber, "", "", certificates, "QC-ERROR", agent_codes,
                                                        is_et_button=True)
     if not financialDetails_html:
         return
@@ -97,18 +143,12 @@ def remove(today, weekday, ped, action, arc_number):
     list_entry_date = []
     if weekday >= 2:
         list_entry_date.append((today + datetime.timedelta(days=-2)).strftime('%d%b%y').upper())
-    # list_entry_date.append((today+datetime.timedelta(days = -1)).strftime('%d%b%y').upper())
-    # if weekday==3 or weekday==4:
-    # 	list_entry_date.append((today+datetime.timedelta(days = -3)).strftime('%d%b%y').upper())
-    # elif weekday==5:
-    # 	list_entry_date.append((today+datetime.timedelta(days = -3)).strftime('%d%b%y').upper())
-    # 	list_entry_date.append((today+datetime.timedelta(days = -2)).strftime('%d%b%y').upper())
 
     entry_date = '\d{2}[A-Z]{3}\d{2}'
     if list_entry_date:
         entry_date = '|'.join(list_entry_date)
 
-    list_regex_search = arc_regex.search_error(search_html, entry_date, error_codes)
+    list_regex_search = arc_regex.search_error(search_html, entry_date, "NONE")
 
     if not list_regex_search:
         logger.warning('Regex search error')

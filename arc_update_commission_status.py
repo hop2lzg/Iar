@@ -119,12 +119,18 @@ def execute(post, action, token, from_date, to_date):
         return
 
     post['ArcComm'] = arc_commission
-    agent_code = "MJ"
+    agent_code = "QC-" + post["updatedByRole"]
     logger.info("ARC commission: %s  updating commission: %s" % (arc_commission, commission))
     arc_commission_is_exception, arc_commission_float = convert_to_float(arc_commission)
     commission_is_exception, commission_float = convert_to_float(commission)
     if arc_commission_is_exception or commission_is_exception or (post['updatedByRole'] != "AG" and arc_commission_float > commission_float):
-        agent_code = "M2"
+        if arc_commission_is_exception or commission_is_exception:
+            agent_code = "QC-FAIL"
+        elif post['AGStatus'] == 0:
+            agent_code = "AG-PENDING"
+        elif post['AGStatus'] == 1:
+            agent_code = "AG-AGREE"
+
         is_et_button = True
         if arc_commission:
             logger.debug(modify_html)
@@ -218,13 +224,13 @@ def check(post, action, token, from_date, to_date):
         return
 
     post['ArcCommUpdated'] = arc_commission
-    agent_code = "MJ"
+    agent_code = "QC-" + post["updatedByRole"]
     logger.info("ARC commission: %s  updating commission: %s" % (arc_commission, commission))
     # arc_commission_float = convert_to_float(arc_commission)
     # commission_float = convert_to_float(commission)
     if post['isPutError']:
         logger.debug("put error")
-        if "M2" in certificates:
+        if ("QC-FAIL" in certificates) or ("AG-PENDING" in certificates) or ("AG-AGREE" in certificates):
             post['hasPutError'] = True
         post['ArcTourCodeUpdated'] = post['ArcTourCode']
         return
@@ -327,16 +333,8 @@ ms = arc.MSSQL(server=sql_server, db=sql_database, user=sql_user, pwd=sql_pwd)
 sql = ('''
 declare @t date
 set @t=dateadd(day,-7,getdate())
---select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
---t.Comm,t.TourCode,t.QCComm UpdatedComm,t.QCTourCode UpdatedTourCode from Ticket t
---left join TicketQC qc
---on t.Id=qc.TicketId
---where qc.ARCupdated=0
---and t.QCStatus=2 and qc.AGStatus=1 and qc.OPStatus<>2
---and t.CreateDate>=@t
---union
 select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
-t.Comm,t.TourCode,qc.AGComm UpdatedComm,qc.AGTourCode UpdatedTourCode,qc.OPUser,qc.OPLastUser,t.FareType,
+t.Comm,t.TourCode,qc.AGComm UpdateComm,qc.AGTourCode UpdateTourCode,qc.OPUser,qc.OPLastUser,t.FareType,qc.AGStatus,
 'AG' updatedByRole,iar.Id IarId from Ticket t
 left join TicketQC qc
 on t.Id=qc.TicketId
@@ -344,14 +342,15 @@ left join IarUpdate iar
 on t.Id=iar.TicketId
 where (qc.ARCupdated=0 or (qc.ARCupdated=1 and iar.IsUpdated=0 and iar.runTimes=0))
 and qc.AGStatus=3
-and qc.OPStatus<>2
-and (t.Comm<>qc.AGComm or t.TourCode<>qc.AGTourCode)
+--and qc.OPStatus<>2
+--and (t.Comm<>qc.AGComm or t.TourCode<>qc.AGTourCode)
 and (iar.Commission is null or iar.Commission<>qc.AGComm or iar.TourCode<>qc.AGTourCode)
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
 and t.CreateDate>=@t
+and ISNULL(qc.AGDate,'1900-1-1') >= ISNULL(qc.OPDate,'1900-1-1')
 union
 select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
-t.Comm,t.TourCode,qc.OPComm UpdatedComm,qc.OPTourCode UpdatedTourCode,qc.OPUser,qc.OPLastUser,t.FareType,
+t.Comm,t.TourCode,qc.OPComm UpdateComm,qc.OPTourCode UpdateTourCode,qc.OPUser,qc.OPLastUser,t.FareType,qc.AGStatus,
 'OP' updatedByRole,iar.Id IarId from Ticket t
 left join TicketQC qc
 on t.Id=qc.TicketId
@@ -359,10 +358,26 @@ left join IarUpdate iar
 on t.Id=iar.TicketId
 where (qc.ARCupdated=0 or (qc.ARCupdated=1 and iar.IsUpdated=0 and iar.runTimes=0))
 and qc.OPStatus=2
+and (qc.AGStatus<>3 or (qc.AGStatus=3 and ISNULL(qc.OPDate,'1900-1-1') >= ISNULL(qc.AGDate,'1900-1-1')))
 and (t.Comm<>qc.OPComm or t.TourCode<>qc.OPTourCode)
-and (iar.Commission is null or iar.Commission<>qc.OPComm or iar.TourCode<>qc.OPTourCode)
+and (iar.Commission is null or iar.Commission<>qc.OPComm or ISNULL(iar.TourCode,'')<>ISNULL(qc.OPTourCode,''))
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
 and t.CreateDate>=@t
+--union
+--select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
+--t.Comm,t.TourCode,t.Comm UpdateComm,t.TourCode UpdateTourCode,qc.OPUser,qc.OPLastUser,t.FareType,qc.AGStatus,
+--'OPA' updatedByRole,iar.Id IarId from Ticket t
+--left join TicketQC qc
+--on t.Id=qc.TicketId
+--left join IarUpdate iar
+--on t.Id=iar.TicketId
+--where (qc.ARCupdated=0 or (qc.ARCupdated=1 and iar.IsUpdated=0 and iar.runTimes=0))
+--and qc.OPStatus=1
+--and (qc.AGStatus<>3 or (qc.AGStatus=3 and ISNULL(qc.OPDate,'1900-1-1') >= ISNULL(qc.AGDate,'1900-1-1')))
+--and (qc.OPComm is null or t.Comm<>qc.OPComm or t.TourCode<>qc.OPTourCode)
+--and (iar.Commission is null or iar.Commission<>t.Comm or ISNULL(iar.TourCode,'')<>ISNULL(t.TourCode,''))
+--and (iar.AuditorStatus is null or iar.AuditorStatus=0)
+--and t.CreateDate>=@t
 order by IssueDate
 ''')
 
@@ -380,9 +395,11 @@ for i in rows:
     v['IssueDate'] = str(i.IssueDate)
     v['ArcNumber'] = i.ArcNumber
     v['Comm'] = str(i.Comm)
-    v['QCComm'] = str(i.UpdatedComm)
+    v['QCComm'] = ""
+    if i.UpdateComm is not None:
+        v['QCComm'] = str(i.UpdateComm)
     v['TourCode'] = i.TourCode
-    v['QCTourCode'] = i.UpdatedTourCode
+    v['QCTourCode'] = i.UpdateTourCode
     v['ArcComm'] = ''
     v['ArcTourCode'] = ''
     v['TicketDesignator'] = ''
@@ -401,7 +418,7 @@ for i in rows:
         op_user = str(i.OPLastUser).strip().upper()
 
     v['OPUser'] = op_user
-    # v['AGStatus'] = i.AGStatus
+    v['AGStatus'] = i.AGStatus
     v['updatedByRole'] = i.updatedByRole
     v['isPutError'] = False
     v['hasPutError'] = False

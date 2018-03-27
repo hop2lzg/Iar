@@ -71,12 +71,22 @@ def execute(post, action, token, from_date, to_date):
         return
 
     post['ArcComm'] = arc_commission
-    agent_code = "MJ"
+    agent_code = "QC-" + post["updatedByRole"]
+    if agent_code == "QC-OPA":
+        logger.info("OP Agree ARC : %s, TKT: %s." % (arcNumber, documentNumber))
+        agent_code = "QC-OP"
+
     logger.info("ARC commission: %s  updating commission: %s" % (arc_commission, commission))
     arc_commission_is_exception, arc_commission_float = convert_to_float(arc_commission)
     commission_is_exception, commission_float = convert_to_float(commission)
     if arc_commission_is_exception or commission_is_exception or (post['updatedByRole'] != "AG" and arc_commission_float > commission_float):
-        agent_code = "M2"
+        if arc_commission_is_exception or commission_is_exception:
+            agent_code = "QC-FAIL"
+        elif post['AGStatus'] == 0:
+            agent_code = "AG-PENDING"
+        elif post['AGStatus'] == 1:
+            agent_code = "AG-AGREE"
+
         is_et_button = True
         if arc_commission:
             logger.debug(modify_html)
@@ -85,6 +95,8 @@ def execute(post, action, token, from_date, to_date):
             commission = post["Comm"]
 
         post['isPutError'] = True
+    # elif post['updatedByRole'] != "AG" and arc_commission_float == 0:
+    #     agent_code = "OP"
 
     financialDetails_html = arc_model.financialDetails(token, is_check_payment, commission, waiverCode, maskedFC, seqNum,
                                                        documentNumber, tour_code, qc_tour_code, certificates, agent_code,
@@ -160,23 +172,19 @@ def check(post, action, token, from_date, to_date):
         return
     elif is_void_pass == 1:
         post['Status'] = 4
-    # voided_index = modify_html.find('Document is being displayed as view only')
-    # if voided_index >= 0:
-    #     post['Status'] = 2
-    #     return
 
     token, maskedFC, arc_commission, waiverCode, certificates = arc_regex.modifyTran(modify_html)
     if not token:
         return
 
     post['ArcCommUpdated'] = arc_commission
-    agent_code = "MJ"
+    agent_code = "QC-" + post["updatedByRole"]
     logger.info("ARC commission: %s  updating commission: %s" % (arc_commission, commission))
     # arc_commission_float = convert_to_float(arc_commission)
     # commission_float = convert_to_float(commission)
     if post['isPutError']:
         logger.debug("put error")
-        if "M2" in certificates:
+        if ("QC-FAIL" in certificates) or ("AG-PENDING" in certificates) or ("AG-AGREE" in certificates):
             post['hasPutError'] = True
         post['ArcTourCodeUpdated'] = post['ArcTourCode']
         return
@@ -236,9 +244,6 @@ def insert(datas):
         if not data['ArcId']:
             sqls.append('''insert into IarUpdate(Id,Commission,TourCode,TicketDesignator,IsUpdated,TicketId,channel) values (newid(),%s,'%s','%s',%d,'%s',3);''' % (
                 comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, data['Id']))
-
-            # insert_sql = insert_sql + '''insert into IarUpdate(Id,Commission,TourCode,TicketDesignator,IsUpdated,TicketId,channel) values (newid(),%s,'%s','%s',%d,'%s',3);''' % (
-            #     comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, data['Id'])
         else:
             run_time = ""
             if data['Status'] != 0:
@@ -246,8 +251,6 @@ def insert(datas):
 
             sqls.append('''update IarUpdate set Commission=%s,TourCode='%s',TicketDesignator='%s',IsUpdated=%d,channel=3,updateDateTime=GETDATE()%s where Id='%s';''' % (
                 comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, run_time, data['ArcId']))
-            # insert_sql = insert_sql + '''update IarUpdate set Commission=%s,TourCode='%s',TicketDesignator='%s',IsUpdated=%d,channel=3,updateDateTime=GETDATE()%s where Id='%s';''' % (
-            #     comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, run_time, data['ArcId'])
 
     if not sqls:
         logger.warn("Insert or update no data")
@@ -300,7 +303,7 @@ declare @end date
 set @start=dateadd(day,-3,getdate())
 set @end=getdate()
 select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,t.FareType,
-t.Comm,t.TourCode,qc.AGComm UpdatedComm,qc.AGTourCode UpdatedTourCode,'AG' updatedByRole,iar.Id IarId from Ticket t
+t.Comm,t.TourCode,qc.AGComm UpdateComm,qc.AGTourCode UpdateTourCode,qc.AGStatus,'AG' updatedByRole,iar.Id IarId from Ticket t
 left join TicketQC qc
 on t.Id=qc.TicketId
 left join IarUpdate iar
@@ -308,14 +311,15 @@ on t.Id=iar.TicketId
 where (qc.ARCupdated=0 or (qc.ARCupdated=1 and iar.IsUpdated=0 and iar.runTimes=0))
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
 and qc.AGStatus=3
-and qc.OPStatus<>2
-and (t.Comm<>qc.AGComm or t.TourCode<>qc.AGTourCode)
+--and qc.OPStatus<>2
+--and (t.Comm<>qc.AGComm or t.TourCode<>qc.AGTourCode)
 and (iar.Commission is null or iar.Commission<>qc.AGComm or iar.TourCode<>qc.AGTourCode)
 and t.IssueDate>=@start
 and t.IssueDate<@end
+and ISNULL(qc.AGDate,'1900-1-1') >= ISNULL(qc.OPDate,'1900-1-1')
 union
 select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,t.FareType,
-t.Comm,t.TourCode,qc.OPComm UpdatedComm,qc.OPTourCode UpdatedTourCode,'OP' updatedByRole,iar.Id IarId from Ticket t
+t.Comm,t.TourCode,qc.OPComm UpdateComm,qc.OPTourCode UpdateTourCode,qc.AGStatus,'OP' updatedByRole,iar.Id IarId from Ticket t
 left join TicketQC qc
 on t.Id=qc.TicketId
 left join IarUpdate iar
@@ -323,16 +327,30 @@ on t.Id=iar.TicketId
 where (qc.ARCupdated=0 or (qc.ARCupdated=1 and iar.IsUpdated=0 and iar.runTimes=0))
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
 and qc.OPStatus=2
+and (qc.AGStatus<>3 or (qc.AGStatus=3 and ISNULL(qc.OPDate,'1900-1-1') >= ISNULL(qc.AGDate,'1900-1-1')))
 and (t.Comm<>qc.OPComm or t.TourCode<>qc.OPTourCode)
 and (iar.Commission is null or iar.Commission<>qc.OPComm or iar.TourCode<>qc.OPTourCode)''' + op_users_sql + '''
+and t.IssueDate>=@start
+and t.IssueDate<@end
+union
+select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,t.FareType,
+t.Comm,t.TourCode,t.Comm UpdateComm,t.TourCode UpdateTourCode,qc.AGStatus,'OPA' updatedByRole,iar.Id IarId from Ticket t
+left join TicketQC qc
+on t.Id=qc.TicketId
+left join IarUpdate iar
+on t.Id=iar.TicketId
+where (qc.ARCupdated=0 or (qc.ARCupdated=1 and iar.IsUpdated=0 and iar.runTimes=0))
+and qc.OPStatus=1
+and (qc.AGStatus<>3 or (qc.AGStatus=3 and ISNULL(qc.OPDate,'1900-1-1') >= ISNULL(qc.AGDate,'1900-1-1')))
+and (qc.OPComm is null or t.Comm<>qc.OPComm or t.TourCode<>qc.OPTourCode)
+and (iar.AuditorStatus is null or iar.AuditorStatus=0)
+and (iar.Commission is null or iar.Commission<>t.Comm or ISNULL(iar.TourCode,'')<>ISNULL(t.TourCode,''))''' + op_users_sql + '''
 and t.IssueDate>=@start
 and t.IssueDate<@end
 order by IssueDate
 ''')
 
-print sql
 rows = ms.ExecQuery(sql)
-# print len(rows)
 
 if len(rows) == 0:
     mail.send(mail_from_addr, mail_to_addr, mail_subject, "No data,please confirm.")
@@ -348,9 +366,11 @@ for i in rows:
     v['IssueDate'] = str(i.IssueDate)
     v['ArcNumber'] = i.ArcNumber
     v['Comm'] = str(i.Comm)
-    v['QCComm'] = str(i.UpdatedComm)
+    v['QCComm'] = ""
+    if i.UpdateComm is not None:
+        v['QCComm'] = str(i.UpdateComm)
     v['TourCode'] = i.TourCode
-    v['QCTourCode'] = i.UpdatedTourCode
+    v['QCTourCode'] = i.UpdateTourCode
     v['ArcComm'] = ''
     v['ArcTourCode'] = ''
     v['TicketDesignator'] = ''
@@ -362,6 +382,7 @@ for i in rows:
         v['Status'] = 3
 
     v['updatedByRole'] = i.updatedByRole
+    v['AGStatus'] = i.AGStatus
     v['isPutError'] = False
     v['hasPutError'] = False
     v['FareType'] = i.FareType

@@ -76,7 +76,7 @@ class ArcModel:
             try:
                 # self.logger.debug("Request start at %d times" % tries)
                 res = self._opener.open(req, timeout=30)
-                self.logger.debug("Request success at %d times" % tries)
+                # self.logger.debug("Request success at %d times" % tries)
                 break
             except (urllib2.URLError, ssl.SSLError) as e:
                 if tries < (max_try_num - 1):
@@ -777,36 +777,6 @@ class Regex:
           <td width="21%" align="left">.+? 
           </td>
           <td width="16%" align="left">(''' + error_codes + ''') 
-          </td>
-          <td width="10%"  align="center">(''' + entry_date + ''') 
-          </td>
-          <td width="10%"  align="center" nowrap>.+? 
-          </td>
-        </tr>''')
-        return self.__public(pattern, html, True)
-
-    def searchError(self, html, entry_date):
-        pattern = re.compile(r'''<tr align=right class="row[01]"> 
-          <td width="3%"  align="center"> .+? 
-          </td>
-          <td width="6%" align="center">
-				 <!-- defect #810-->
-				 <input type="checkbox" name="checkBoxes" value='(\d{10}):(\d{10})'  />  
-          <td  width="5%" align="center">E 
-          </td>
-          <td width="6%"align="center">(\d{3}) 
-          </td>
-        <td width="12%" align="left">
-        
-            <a href="/IAR/modifyTran\.do\?seqNum=.+?</a>
-                
-        
-		</td>
-          <td width="14%" align="left">.+?      
-          </td>         
-          <td width="21%" align="left">.+? 
-          </td>
-          <td width="16%" align="left">(M[J12]|DUP) 
           </td>
           <td width="10%"  align="center">(''' + entry_date + ''') 
           </td>
