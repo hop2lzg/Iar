@@ -138,6 +138,7 @@ class ArcModel:
                 continue
 
             is_login = True
+            break
 
         return is_login
 

@@ -275,11 +275,11 @@ def insert(datas):
         ids.append(data['Id'])
 
         if not data['IarId']:
-            sqls.append('''insert into IarUpdate(Id,TicketId,channel,IsPutError) values (newid(),'%s',4,1);''' % (
-                data['Id']))
+            sqls.append('''insert into IarUpdate(Id,TicketId,channel,IsPutError,errorCode) values (newid(),'%s',4,1,'%s');''' % (
+                data['Id'], data['ErrorCode']))
         else:
-            sqls.append('''update IarUpdate set channel=4,IsPutError=1 where Id='%s';''' % (
-                data['IarId']))
+            sqls.append('''update IarUpdate set channel=4,IsPutError=1,errorCode='%s' where Id='%s';''' % (
+                data['ErrorCode'], data['IarId']))
 
     if not sqls:
         logger.warn("Insert or update no data")

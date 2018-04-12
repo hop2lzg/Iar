@@ -1,0 +1,1323 @@
+ 
+ 
+
+
+
+
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<title>ARC - Financial Details</title>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<link href="css/iarstyles.css" rel="stylesheet" type="text/css">
+<script language="JavaScript1.2" type="text/javascript" src="js/iar.js"></script>
+
+</head>
+<body>
+<form name="financialDetailsForm" method="post" action="/IAR/financialDetails.do" onsubmit="return canSubmit()"><input type="hidden" name="org.apache.struts.taglib.html.TOKEN" value="d366d91feefbe10f9dc6b747f3b42187">
+<table width="920" border="0" align="center" cellpadding="0" cellspacing="0" class="tablelistborder">
+  <tr>
+    <td>
+      <!--// BEGIN GLOBAL HEADER //-->
+      
+<HTML>
+
+
+
+<HEAD>
+    <TITLE>
+    </TITLE>
+
+    <META http-equiv="Pragma" content="no-cache">
+    <META http-equiv="Cache-Control" content="no-cache">
+    <META http-equiv="Cache-Control" content="max-age=0">
+    <META http-equiv="Cache-Control" content="s-max-age=0">
+    <META http-equiv="Cache-Control" content="must-revalidate">
+    <META http-equiv="Cache-Control" content="no-store">
+    <META http-equiv="expires" content="0">
+    <SCRIPT type="text/javascript" language="javascript1.2"  src="js/iar.js"></SCRIPT>
+    <SCRIPT type="text/javascript" language="javascript1.2" src="js/robohelp_csh.js"></SCRIPT>
+</HEAD>
+<!-- applix #2396454 -->
+ 
+<script src="js/iar.js">
+</script>
+<script>
+	var session_Timer = 840;
+</script>
+<style type="text/css">
+                #popupframe { color: #000; display: none; font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 11px; left: 0%; padding: 0px 0px 0px 0px; position: fixed !important; position: absolute; top: 20%; left: 30%; width: 405px; z-index: 999; }
+                #popupframeTL, #popupframeTM, #popupframeTR { float: left; height: 26px; padding: 0px 0px 0px 0px; }
+                #popupframeTL { background: url(https://www.arccorp.com/img/popupTopL.gif) no-repeat top left; width: 5px; }
+                #popupframeTM { background: url(https://www.arccorp.com/img/popupTopM.gif) repeat-x; width: 399px;
+	border-right: 1px solid #ABABAB; }
+                #popupframeTR { background: url(https://www.arccorp.com/img/popupTopR.gif) no-repeat top right; cursor: pointer; float: right; width: 20px; }
+                #popuphead { float: left; font-size: 14px; font-weight: bold; line-height: 14px; margin-top: 0px; padding: 5px 0px 2px 15px; }
+                #popupbody1 { border-left: 1px solid #E1E1E1; border-right: 1px solid #E1E1E1; float: left; margin: 0px; padding: 0px; width: 348px; }
+                #popupbody2 {
+	background: #ececec;
+	border-left: 1px solid #ABABAB;
+	border-right: 1px solid #ABABAB;
+	float: left;
+	line-height: 19px;
+	margin-left: 1px;
+	padding: 25px;
+	text-align: left;
+}
+                #popupframeBL, #popupframeBM, #popupframeBR { float: left; height: 11px; margin: 0px; padding: 0px; }
+                #popupframeBL { background: url(https://www.arccorp.com/img/popupBotL.gif) no-repeat; width: 5px; }
+                #popupframeBM {
+	background: url(https://www.arccorp.com/img/popupBotM.gif) repeat-x;
+	width: 399px;
+	border-right: 1px solid #ABABAB;
+}
+                #popupframeBR { background: url(https://www.arccorp.com/img/popupBotR.gif) no-repeat; float: right; width: 20px; }
+                /* The new Close Button */
+            /*   .close {color: black; float: right; font-size: 28px; font-weight: bold; font-family: serif; }*/
+            /* .xIcon{font-family: arial; float: right; font-size: 25px; font-style: normal; text-shadow: 0px 0px 2px gray;margin-top:-2px; margin-right: 4px;} */ 
+</style>
+
+<body onload='TimeoutPopup();'>
+
+      <div id="popupframe" style="display:none;">
+      	<div id="popupframeTL"></div>
+      	<div id="popupframeTM">
+      		<!-- <i class="fa fa-times fa-lg fa-pull-right" aria-hidden="true"  style="margin-top:8px; margin-right:5px;" id="closePopupWindow"></i> -->
+      		<!--<span id="closePopupWindow" class="xIcon">x</span>-->
+      		<div id="popuphead">IAR Session Timeout Warning</div>
+     	</div>
+        <!-- <div id="popupbody1"> -->
+      		<div id="popupbody2">
+      			<p>Your IAR session will expire in 2 minutes. <br>You can extend your session another 15 minutes by selecting "CONTINUE".</p>
+      			<p align="center">
+    				 <img src="img/btn_continue.gif" onclick="closeit('continue');" alt="" title="Continue, extend the session by 15 minutes"/>&nbsp;&nbsp;
+      				 <img src="img/btn_close_iar.gif" onclick="closeit('close');" alt="" title="Close iar session"  />
+      			</p>
+      		</div>
+      	<!-- </div> -->
+      	<div style="clear:both;"><div id="popupframeBL"></div><div id="popupframeBM"></div></div>
+      </div>
+
+<script>
+var popup = document.getElementById('popupframe');
+function closeit(option) {
+	if(option=="continue")  {       //User clicked on CONTINUE button
+		  //close the pop-up window
+			popup.style.display = "none";
+			counter = 15;
+			var xhttp = new XMLHttpRequest();
+			
+			xhttp.open("GET", "/IAR/include/sessionTimeout.jsp", true);
+			xhttp.send();
+        }
+    	else if(option=="close")  {   //User clicked on CLOSEIAR button
+			popup.style.display = "none";
+			window.location.href = '/IAR/logout.do';
+	    }
+    }
+</script>
+</body>
+
+
+<LINK rel="STYLESHEET" href="css/iarstyles.css" type="text/css" />
+
+<BODY bgcolor="#FFFFFF" topmargin="0" leftmargin="0" marginheight="0" marginwidth="0" link="#666666" alink="#666666" vlink="#666666" >
+
+<TABLE width="938" border="0" align="center" cellpadding="0" cellspacing="0">
+  <TR valign="baseline">
+    <TD width="55%" ><A href="http://www.arccorp.com" target="_blank"><div id="arcLogo" style="padding-left:40px;">
+    <IMG src="img/arclogo.gif" alt="Go to www.arccorp.com" border="0"></div></A></TD>
+    
+    
+    <TD width="10%"  align="center"></TD>
+    <TD width="10%"  align="center"></TD>
+    <TD width="10%"  align="center"></TD>
+    <TD width="10%"  align="center"></TD>
+	<TD width="8%" align="right" valign="bottom"><input type="image" name="helpTab" src="img/spacer9x9.gif" title="IAR Help" alt="IAR Help"></TD>
+    <TD width="10%" align="right" ><a href="https://www.arccorp.com/webhelp/iar/index.html" target="_blank"><IMG src="img/gnav_help.gif" alt="IAR Help" title="IAR Help" border="0"></a></TD>
+  </TR>
+</TABLE>
+
+      <!--// END GLOBAL HEADER //-->
+      <!--// BEGIN BODY//-->
+      <!--// BEGIN PAGE HEADER //-->
+      <table width="100%" border="0" align="center" cellpadding="0" cellspacing="0">
+        <tr>
+    		<td  width="100%"colspan="5"><img src="img/ttl_financial_details.gif" width=504 height=33 border=0></td>
+        </tr>
+      </table>
+      
+
+<table width="920" border="0" align="center" cellpadding="0" cellspacing="0">
+  <tr>
+    <td width="316">&nbsp;</td>
+    <td width="151" align="right" valign="bottom"><!-- navButton1 --><input type="image" name="navButton1" src="img/Tab_Financial_Details_On.gif" title="Financial Details - FI, TX, IO, IN & FC" alt="Financial Details - FI, TX, IO, IN & FC"></td>
+    <td width="151" align="right" valign="bottom"><!-- navButton2 --><input type="image" name="navButton2" src="img/Tab_Itinerary_Off.gif" title="Itinerary/Endorsement Remarks - IT, ER" alt="Itinerary/Endorsement Remarks - IT, ER"></td>
+	<td width="151" align="right" valign="bottom"><!-- navButton3 --></td>
+   	<td width="151" align="right" valign="bottom"><!-- navButton4 --></td>
+  </tr>
+</table>
+       <table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" class="heading">
+        <tr>
+          <td><table width="100%" border="0" cellspacing="0" cellpadding="0">
+        </tr>
+          <td width="35%"><table width="100%" border="0" cellspacing="0" cellpadding="0" class="border">
+        	<tr class="contentboldtext">
+          	   <td width="25%" height="24">&nbsp;Document#</td>
+          	   <td width="30%" class="contenttext" nowrap>
+          	      781 8644029555 2</td>
+          	   <td width="15%" height="24" align="right">&nbsp;thru&nbsp;</td>
+          	   <td width="15%" class="contenttext">
+          	   
+<!-- LD -- THRU -->          	   
+          	             	   
+<!-- TM -- THRU -->          	   
+          	   
+          	      556
+          	   
+<!-- TA -- THRU --> 
+          	   </td>
+          	   <td width="5%" height="24">&nbsp;</td>
+		</tr>
+        	<tr class="contentboldtext">
+          	   <td width="25%" height="24" nowrap>&nbsp;Date of Issue:&nbsp;&nbsp;&nbsp;</td>
+          	   <td colspan="2" align="left">
+          	   
+          	   
+          	   <input type="text" name="dateOfIssue" maxlength="7" size="8" value="05AUG17" disabled="disabled" class="contenttext">
+          	   </td>
+        	   <td>&nbsp;</td>
+		</tr>
+        	<tr class="contentboldtext">
+          	  <td width="33%" height="24" nowrap>&nbsp;E-Ticket:&nbsp;</td>
+		  <td width="33%" nowrap align="left">
+		  
+		  
+		  <input type="checkbox" name="electronicTicket" value="on" checked="checked" disabled="disabled">
+		  </td>
+		  
+          	  <td width="34%" nowrap align="right class="contentboldtext">Currency: USD</td>
+       		</tr>
+           </table></td>
+                <td width="35%"><table width="100%" border="0" cellspacing="0" cellpadding="0" class="border">
+                    <tr class="contenttext">
+                      <td width="30%" height="24" class="contentboldtext" align="left">&nbsp;Tran Type:</td>
+                      <td width="35%" class="contenttext">&nbsp;ET        </td>
+                      <td width="20%" class="contentboldtext"  align="left">Status:&nbsp;</td>
+                      <td width="14%">E</td>
+		      <td width="1%" height="24">&nbsp;</td>
+                    </tr>
+                    <tr class="contenttext">
+                      <td width="30%" height="24" nowrap class="contentboldtext">&nbsp;Entry Date:&nbsp;</td>
+                      <td colspan="1" align="left">06AUG17</td>
+                      <td>&nbsp;</td>
+                      <td>&nbsp;</td>
+		      <td>&nbsp;</td>
+                    </tr>
+          	    <tr class="contenttext">
+                      <td width="30%" align="bottom" class="contentboldtext" height="24" align="left">&nbsp;Void ESAC: &nbsp;</td>
+                      <td width="35%" align="left"></td>
+      		      <td>&nbsp;</td>
+                      <td>&nbsp;</td>
+		      <td>&nbsp;</td>
+		      
+                    </tr>
+                  </table></td>
+                  
+                <td width="30%"><table width="100%" border="0" cellpadding="0" cellspacing="0" class="heading">
+                    
+                    <tr class="contenttext">
+                      <td width="20" nowrap class="contentboldtext" height="24" align="left">&nbsp;ARC#:</td>
+                      <td width="20" nowrap align="left">33547544</td>
+                      <td width="25" nowrap class="contentboldtext" height="24" align="left">PED:</td>
+                      <td width="35" nowrap>06AUG17</td>
+                    </tr>
+                    <tr class="contenttext">
+                      <td>&nbsp;</td>
+		      <td>&nbsp;</td>
+		      <td>&nbsp;</td>
+		      <td>&nbsp;</td>
+                    </tr>
+                    <tr class="contenttext">
+                      <td>&nbsp;</td>
+		      <td>&nbsp;</td>
+		      <td>&nbsp;</td>
+		      <td>&nbsp;</td>
+                    </tr>
+		    <tr class="contenttext">
+			<td colspan="2" height="24" nowrap align="left" class="contentboldtext"></td>	
+			<td colspan="2" height="24" nowrap align="left" class="contenttext"></td>	
+	 	    </tr>
+              
+                  </table></td>
+              </tr>
+            </table></td>
+        </tr>
+      </table>
+      <!--// END PAGE HEADER //-->
+      <!--// BEGIN ERROR/RESPONSE MESSAGES //-->
+      
+	   
+      <table width="100%"  align="center"border="0" cellspacing="0" cellpadding="0">
+      
+        
+           <tr>
+             <td width="100%" height="20" class="errorJsp">
+                ERROR - A certificate number field is incomplete
+             </td>
+           </tr>
+        
+        
+        
+      </table>
+	  
+     	  
+      <!--// END ERROR/RESPONSE MESSAGES //-->
+      <!--// BEGIN FARE, TAXES & COMMISSION //-->
+      <table width="100%"  align="center"border="0" cellspacing="0" cellpadding="0">
+        <tr>
+          <td width="25%" height="20"><img src="img/hdr_fare_tax_co.gif" width="100%" height=20 border=0>
+          </td>
+          <td width="25%" height="20"><img src="img/module_headers_long_no_text_copy.gif" width="100%" height=20 border=0>
+          </td>
+          <td width="25%" height="20"><img src="img/module_headers_long_no_text_copy.gif" width="100%" height=20 border=0>
+          </td>
+          <td width="25%" height="20"><img src="img/module_headers_short_no_tex.gif" width="100%" height=20 border=0>
+          </td>
+        </tr>
+      </table>
+      <table width="100%" border="0" cellspacing="0" cellpadding="0" align="center">
+        <tr>
+          <td colspan="1">
+          <table width="100%" border="0" cellspacing="0" cellpadding="0" class="border">
+              <tr class="contentboldtext">
+                <td align="center">&nbsp;</td>
+                <td  align="center">Currency<br>Code</td>
+                <td  align="center" valign="bottom">Amount</td>             
+              </tr>
+              
+              <tr>
+                <td class="contentboldtext" height="20" align="right">Base Fare:&nbsp;</td>
+                <td  align="center" class="contenttext">
+                    
+                    
+                        <input type="text" name="currCodeBaseFare" maxlength="3" size="5" value="USD" disabled="disabled" class="contenttext">
+                                   
+                </td>
+                <td  align="center" class="contenttext">
+                   
+                    
+                        <input type="text" name="amountBaseFare" maxlength="10" size="15" value="225.00" disabled="disabled" class="contenttextright">
+                                             
+
+                </td>
+              </tr>
+              <tr>
+                <td class="contentboldtext" height="20" align="right">Equiv Amt:&nbsp;</td>
+                <td  align="center" class="contenttext">
+                   
+                    
+                        <input type="text" name="currCodeEquivAmt" maxlength="3" size="5" value="" disabled="disabled" class="contenttext">
+                                             
+                 </td>
+                <td align="center"  class="contenttext">
+                    
+                    
+                        <input type="text" name="amountEquivAmt" maxlength="10" size="15" value="" disabled="disabled" class="contenttextright">
+                    
+                </td>
+              </tr>
+              <tr>
+                <td class="contentboldtext" height="20" align="right">Bank Rate:&nbsp;</td>
+                <td>&nbsp;</td>
+                <td align="center"  class="contenttext">
+                    
+                    
+                        <input type="text" name="amountBankRate" maxlength="10" size="15" value="" disabled="disabled" class="contenttextright">
+                    
+                </td>
+              </tr>
+              <tr>
+                <td class="contentboldtext" height="23" align="right">Tax Total:&nbsp;</td>
+                <td>&nbsp;</td>
+
+<!-- DEF223 -->               
+<!-- TOTAL TAX In a box greyed out-->                
+<!--            <td align="center" class="contenttext" align="left">             
+                    <input type="text" name="amountTaxTotal" maxlength="10" size="15" value="283.96" disabled="disabled" class="contenttext">
+                </td> -->
+                
+<!-- TOTAL TAX As a label -->                
+                <td class="contenttext" align="center">
+	                <input type="text" name="amountTaxTotal" size="15" value="283.96" disabled="disabled" style="border:0;" class="contenttextright">
+                </td>
+                
+              </tr>
+              <tr>
+                <td class="contentboldtext" height="20" align="right">Total:&nbsp;</td>
+                <td>&nbsp;</td>
+                <td align="center" class="contenttext">
+                    
+                    
+                        <input type="text" name="amountTotal" maxlength="12" size="15" value="508.96" disabled="disabled" class="contenttextright">
+                                   
+                </td>
+              </tr>
+              <tr>
+                <td class="contentboldtext" height="20" align="right">&nbsp;Commission:&nbsp;</td>
+                <td>&nbsp;</td>
+                <td align="center" class="contenttext">
+                    
+                       <input type="text" name="amountCommission" maxlength="10" size="15" value="77.00" class="contenttextright">
+                    
+                                   
+                </td>
+              </tr>
+              <tr>
+                <td colspan="3">&nbsp;</td>
+                
+              </tr>
+              <tr>
+                <td colspan="3">&nbsp;</td>
+                
+              </tr>
+          </table>
+          </td>
+          <td colspan="1">
+          
+          <table width="100%" border="0" cellspacing="0" cellpadding="0">
+              <tr class="contentboldtext">
+                <td width="10%">&nbsp;</td>
+                <td width="8%" align="center">Tax Code</td>
+                <td width="15%" align="center" valign="bottom">Amount</td>
+                <td width="10%">&nbsp;</td>
+                <td width="8%" align="center">Tax Code</td>
+                <td width="15%" align="center" valign="bottom">Amount</td>
+                <td width="10%">&nbsp;</td>
+                <td width="8%" align="center">Tax Code</td>
+                <td width="16%" align="center" valign="bottom">Amount</td>
+              </tr>
+              
+                
+              <tr class="contenttext">
+                
+                <td  class="contentboldtext" align="right" nowrap> 
+                    Tax 1:&nbsp; </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[0].taxCode" maxlength="2" size="4" value="XF" disabled="disabled" class="contenttext">
+                                              
+                </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[0].taxAmount" maxlength="10" size="13" value="4.50" disabled="disabled" class="contenttextright">
+                                             
+                </td>
+                
+              
+                
+                <td  class="contentboldtext" align="right" nowrap> 
+                    Tax 2:&nbsp; </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[1].taxCode" maxlength="2" size="4" value="YQ" disabled="disabled" class="contenttext">
+                                              
+                </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[1].taxAmount" maxlength="10" size="13" value="208.00" disabled="disabled" class="contenttextright">
+                                             
+                </td>
+                
+              
+                
+                <td  class="contentboldtext" align="right" nowrap> 
+                    Tax 3:&nbsp; </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[2].taxCode" maxlength="2" size="4" value="US" disabled="disabled" class="contenttext">
+                                              
+                </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[2].taxAmount" maxlength="10" size="13" value="36.00" disabled="disabled" class="contenttextright">
+                                             
+                </td>
+                
+              </tr>
+              
+              
+                
+              <tr class="contenttext">
+                
+                <td  class="contentboldtext" align="right" nowrap> 
+                    Tax 4:&nbsp; </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[3].taxCode" maxlength="2" size="4" value="YC" disabled="disabled" class="contenttext">
+                                              
+                </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[3].taxAmount" maxlength="10" size="13" value="5.50" disabled="disabled" class="contenttextright">
+                                             
+                </td>
+                
+              
+                
+                <td  class="contentboldtext" align="right" nowrap> 
+                    Tax 5:&nbsp; </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[4].taxCode" maxlength="2" size="4" value="XY" disabled="disabled" class="contenttext">
+                                              
+                </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[4].taxAmount" maxlength="10" size="13" value="7.00" disabled="disabled" class="contenttextright">
+                                             
+                </td>
+                
+              
+                
+                <td  class="contentboldtext" align="right" nowrap> 
+                    Tax 6:&nbsp; </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[5].taxCode" maxlength="2" size="4" value="XA" disabled="disabled" class="contenttext">
+                                              
+                </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[5].taxAmount" maxlength="10" size="13" value="3.96" disabled="disabled" class="contenttextright">
+                                             
+                </td>
+                
+              </tr>
+              
+              
+                
+              <tr class="contenttext">
+                
+                <td  class="contentboldtext" align="right" nowrap> 
+                    Tax 7:&nbsp; </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[6].taxCode" maxlength="2" size="4" value="AY" disabled="disabled" class="contenttext">
+                                              
+                </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[6].taxAmount" maxlength="10" size="13" value="5.60" disabled="disabled" class="contenttextright">
+                                             
+                </td>
+                
+              
+                
+                <td  class="contentboldtext" align="right" nowrap> 
+                    Tax 8:&nbsp; </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[7].taxCode" maxlength="2" size="4" value="CN" disabled="disabled" class="contenttext">
+                                              
+                </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[7].taxAmount" maxlength="10" size="13" value="13.40" disabled="disabled" class="contenttextright">
+                                             
+                </td>
+                
+              
+                
+                <td  class="contentboldtext" align="right" nowrap> 
+                    Tax 9:&nbsp; </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[8].taxCode" maxlength="2" size="4" value="" disabled="disabled" class="contenttext">
+                                              
+                </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[8].taxAmount" maxlength="10" size="13" value="" disabled="disabled" class="contenttextright">
+                                             
+                </td>
+                
+              </tr>
+              
+              
+                
+              <tr class="contenttext">
+                
+                <td  class="contentboldtext" align="right" nowrap> 
+                    Tax 10:&nbsp; </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[9].taxCode" maxlength="2" size="4" value="" disabled="disabled" class="contenttext">
+                                              
+                </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[9].taxAmount" maxlength="10" size="13" value="" disabled="disabled" class="contenttextright">
+                                             
+                </td>
+                
+              
+                
+                <td  class="contentboldtext" align="right" nowrap> 
+                    Tax 11:&nbsp; </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[10].taxCode" maxlength="2" size="4" value="" disabled="disabled" class="contenttext">
+                                              
+                </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[10].taxAmount" maxlength="10" size="13" value="" disabled="disabled" class="contenttextright">
+                                             
+                </td>
+                
+              
+                
+                <td  class="contentboldtext" align="right" nowrap> 
+                    Tax 12:&nbsp; </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[11].taxCode" maxlength="2" size="4" value="" disabled="disabled" class="contenttext">
+                                              
+                </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[11].taxAmount" maxlength="10" size="13" value="" disabled="disabled" class="contenttextright">
+                                             
+                </td>
+                
+              </tr>
+              
+              
+                
+              <tr class="contenttext">
+                
+                <td  class="contentboldtext" align="right" nowrap> 
+                    Tax 13:&nbsp; </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[12].taxCode" maxlength="2" size="4" value="" disabled="disabled" class="contenttext">
+                                              
+                </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[12].taxAmount" maxlength="10" size="13" value="" disabled="disabled" class="contenttextright">
+                                             
+                </td>
+                
+              
+                
+                <td  class="contentboldtext" align="right" nowrap> 
+                    Tax 14:&nbsp; </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[13].taxCode" maxlength="2" size="4" value="" disabled="disabled" class="contenttext">
+                                              
+                </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[13].taxAmount" maxlength="10" size="13" value="" disabled="disabled" class="contenttextright">
+                                             
+                </td>
+                
+              
+                
+                <td  class="contentboldtext" align="right" nowrap> 
+                    Tax 15:&nbsp; </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[14].taxCode" maxlength="2" size="4" value="" disabled="disabled" class="contenttext">
+                                              
+                </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[14].taxAmount" maxlength="10" size="13" value="" disabled="disabled" class="contenttextright">
+                                             
+                </td>
+                
+              </tr>
+              
+              
+                
+              <tr class="contenttext">
+                
+                <td  class="contentboldtext" align="right" nowrap> 
+                    Tax 16:&nbsp; </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[15].taxCode" maxlength="2" size="4" value="" disabled="disabled" class="contenttext">
+                                              
+                </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[15].taxAmount" maxlength="10" size="13" value="" disabled="disabled" class="contenttextright">
+                                             
+                </td>
+                
+              
+                
+                <td  class="contentboldtext" align="right" nowrap> 
+                    Tax 17:&nbsp; </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[16].taxCode" maxlength="2" size="4" value="" disabled="disabled" class="contenttext">
+                                              
+                </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[16].taxAmount" maxlength="10" size="13" value="" disabled="disabled" class="contenttextright">
+                                             
+                </td>
+                
+              
+                
+                <td  class="contentboldtext" align="right" nowrap> 
+                    Tax 18:&nbsp; </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[17].taxCode" maxlength="2" size="4" value="" disabled="disabled" class="contenttext">
+                                              
+                </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[17].taxAmount" maxlength="10" size="13" value="" disabled="disabled" class="contenttextright">
+                                             
+                </td>
+                
+              </tr>
+              
+              
+                
+              <tr class="contenttext">
+                
+                <td  class="contentboldtext" align="right" nowrap> 
+                    Tax 19:&nbsp; </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[18].taxCode" maxlength="2" size="4" value="" disabled="disabled" class="contenttext">
+                                              
+                </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[18].taxAmount" maxlength="10" size="13" value="" disabled="disabled" class="contenttextright">
+                                             
+                </td>
+                
+              
+                
+                <td  class="contentboldtext" align="right" nowrap> 
+                    Tax 20:&nbsp; </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[19].taxCode" maxlength="2" size="4" value="" disabled="disabled" class="contenttext">
+                                              
+                </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[19].taxAmount" maxlength="10" size="13" value="" disabled="disabled" class="contenttextright">
+                                             
+                </td>
+                
+              
+                
+                <td  class="contentboldtext" align="right" nowrap> 
+                    Tax 21:&nbsp; </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[20].taxCode" maxlength="2" size="4" value="" disabled="disabled" class="contenttext">
+                                              
+                </td>
+                <td align="center" class="contenttext">
+                            
+                            
+                                <input type="text" name="taxItem[20].taxAmount" maxlength="10" size="13" value="" disabled="disabled" class="contenttextright">
+                                             
+                </td>
+                
+              </tr>
+              
+              
+            </table>
+            <table width="100%" border="0" cellspacing="0" cellpadding="0">
+              <tr class="contentboldtext" align="center">
+                <td width="15%">&nbsp;</td>
+                <td width="20%"align="right">PFC:&nbsp;</td>
+                
+                <td width="10%">
+                            
+                            
+                            
+                                <input type="text" name="pfcList[0].value" maxlength="8" size="15" value="JFK4.5" disabled="disabled" class="contenttext">
+                            
+                                           
+                </td>
+                
+                <td width="10%">
+                            
+                            
+                            
+                                <input type="text" name="pfcList[1].value" maxlength="8" size="15" value="" disabled="disabled" class="contenttext">
+                            
+                                           
+                </td>
+                
+                <td width="10%">
+                            
+                            
+                            
+                                <input type="text" name="pfcList[2].value" maxlength="8" size="15" value="" disabled="disabled" class="contenttext">
+                            
+                                           
+                </td>
+                
+                <td width="10%">
+                            
+                            
+                            
+                                <input type="text" name="pfcList[3].value" maxlength="8" size="15" value="" disabled="disabled" class="contenttext">
+                            
+                                           
+                </td>
+                
+                <td width="25%">&nbsp;<input type="image" name="extraTaxesButton" src="img/btn_more_taxes.gif" title="Click Here To Go To Additional Taxes Screen" alt="Click Here To Go To Additional Taxes Screen"></td>
+              </tr>
+            </table>
+            </td>
+        </tr>
+      </table>
+      <!--// END FARE, TAXES & COMMISSION //-->        
+      <table width="100%"  align="center" border="0" cellspacing="0" cellpadding="0">
+        <tr>
+          <td width="25%" height="20"><img src="img/cash_or_credit.gif" width="100%" height=20 border=0>
+          </td>
+          <td width="25%" height="20"><img src="img/module_headers_long_no_text_copy.gif" width="100%" height=20 border=0>
+          </td>
+          <td width="25%" height="20"><img src="img/module_headers_long_no_text_copy.gif" width="100%" height=20 border=0>
+          </td>
+          <td width="25%" height="20"><img src="img/module_headers_short_no_tex.gif" width="100%" height=20 border=0>
+          </td>
+        </tr>
+      </table>
+      <table width="100%" border="0" cellspacing="0" cellpadding="0" align="center">
+        <tr>
+          <td width="35%" class="border">
+            
+                        
+                
+      <!--// BEGIN FOP //-->
+
+
+            <table width="100%" border="0" cellspacing="0" cellpadding="0">
+              <tr> 
+                <td  width="40%" height="20"class="contentboldtext" align="right">Form 
+                  of Payment:&nbsp;</td>
+                <td width="50%" align="left" class="contenttext"> 
+
+<!-- 07-006 - Starts --> 
+<!-- Masked -->                           
+                            
+                              <!-- CC Is Masked<BR>-->
+                               
+                               
+                                   <input type="text" name="maskedFormOfPayment" maxlength="19" size="25" value="VI************0200" disabled="disabled" class="contenttext">                                   
+                                                                 
+                            
+<!-- Not masked -->                            
+                                                        
+<!-- 07-006 - Ends -->
+                                                 
+                    </td>
+              </tr>
+              <tr> 
+                <td height="20" class="contentboldtext" align="right">Approval 
+                  Code:&nbsp; </td>
+                <td align="left" class="contenttext"> 
+                            
+                            
+                                <input type="text" name="paymentBean.approvalCode" maxlength="06" size="25" value="08551I" disabled="disabled" class="contenttext">
+                                              
+                 
+                </td>
+              </tr>
+              <tr> 
+                <td height="20" class="contentboldtext" align="right">Extended 
+                  Pay:&nbsp; </td>
+                <td align="left" class="contenttext"> 
+                            
+                            
+                                <input type="text" name="paymentBean.extendedPay" maxlength="1" size="1" value="N" disabled="disabled" class="contenttext"> 
+                                                  
+                    
+                </td>
+              </tr>
+              <tr> 
+                <td height="20" class="contentboldtext">&nbsp;</td>
+                <td align="left">&nbsp; </td>
+              </tr>
+              <tr> 
+                <td height="20" class="contentboldtext">&nbsp;</td>
+                <td align="left">&nbsp;</td>
+              </tr>
+            </table>
+                      
+                
+                                
+          
+          </td>
+          <td width="65%"><table width="100%"  border="0" cellpadding="0" cellspacing="0"><tr class="contentboldtext"><td width="20%" height="20" nowrap>&nbsp;Misc Support:&nbsp;</td>
+          <td width="42%" styleclass="contenttext">
+                
+                    <div class="formElementSmall">
+                <select name="miscSupportTypeId" class="contenttext"><option value="" selected="selected"></option>
+<option value="WV">WV-Waiver Code</option>
+<option value="DE">DE-Death Certificate</option>
+<option value="DR">DR-Doctor&#39;s Note</option>
+<option value="LT">LT-Lost Ticket Application</option></select>
+                </div>
+                
+                
+                </td>
+          <td width="18%" align="right">Waiver Code:&nbsp;</td>
+          <td width="22%" class="contenttext"><input type="text" name="waiverCode" maxlength="15" size="20" value="" class="contenttext">&nbsp;</td>
+        </tr>
+            </table>
+            <table width="100%" border="0" cellspacing="0" cellpadding="0">
+              <tr>
+                <td colspan="4" height="20" class="contentboldtext">&nbsp;Type A Certificates: </td>
+              </tr>
+              
+              
+              <tr align=right>
+                
+                <td width="25%" align="right" class="contentboldtext" nowrap height="20">
+                  Certificate 1: 
+                &nbsp;</td>
+                <td width="15%" class="contenttext" nowrap height="20">
+                   
+                        <input type="text" name="certificateItem[0].value" maxlength="14" size="19" value="MJ" class="contenttext">
+                    
+                    
+                </td>
+                
+              
+              
+                <td width="25%" align="right" class="contentboldtext" nowrap height="20">
+                  Certificate 2: 
+                &nbsp;</td>
+                <td width="15%" class="contenttext" nowrap height="20">
+                   
+                        <input type="text" name="certificateItem[1].value" maxlength="14" size="19" value="" class="contenttext">
+                    
+                    
+                </td>
+                
+                <td width="10%">&nbsp;</td>
+              </tr>
+              
+              
+              
+              <tr align=right>
+                
+                <td width="25%" align="right" class="contentboldtext" nowrap height="20">
+                  Certificate 3: 
+                &nbsp;</td>
+                <td width="15%" class="contenttext" nowrap height="20">
+                   
+                        <input type="text" name="certificateItem[2].value" maxlength="14" size="19" value="" class="contenttext">
+                    
+                    
+                </td>
+                
+              
+              
+                <td width="25%" align="right" class="contentboldtext" nowrap height="20">
+                  Certificate 4: 
+                &nbsp;</td>
+                <td width="15%" class="contenttext" nowrap height="20">
+                   
+                        <input type="text" name="certificateItem[3].value" maxlength="14" size="19" value="" class="contenttext">
+                    
+                    
+                </td>
+                
+                <td width="10%">&nbsp;</td>
+              </tr>
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              <tr>
+                <td  colspan="2"class="contentboldtext" height="20">&nbsp;Total 
+                  Certificates = 1</td>
+                <td colspan="2" align="right"><input type="image" name="additionalCertButton" src="img/btn_more_certs.gif" title="Click Here To Go To Additional Certificates Screen" alt="Click Here To Go To Additional Certificates Screen"></td>
+              </tr>
+            </table></td>
+        </tr>
+      </table>
+<!--// OLD DOCUMENTS -->    
+        <input type="hidden" name="error22010" maxlength="6" size="6" value="false"> 
+          <table width="100%"  align="center" border="0" cellspacing="0" cellpadding="0">
+
+
+              
+                <tr class="heading2">              
+                  <td  width="25%"class="heading">
+                    EXCHANGES: OLD DOCUMENTS
+                  </td>
+                                    
+                                        
+              
+                    <td  width="25%" align="right">Add 13-digit Old Document#: &nbsp;</td>
+                              <td  width="25%" align="left" nowrap> <input type="text" name="oldDocumentAirlineCodeFI" maxlength="3" size="5" value="" class="contenttext"> 
+                        <input type="text" name="oldDocumentNumberFI" maxlength="10" size="20" value="" class="contenttext"> 
+                        
+                      </td>
+                      <td width="15%"align="right" nowrap>Exchange All:&nbsp; <input type="checkbox" name="exchangeAllCheckBoxFI" value="on"></td>
+                      <td width="10%"align="right"> <input type="image" name="addOldDocumentButton" src="img/btn_add.gif"> </td>
+              
+              
+              
+              
+            </tr>
+          </table>
+            
+<!--// NEW DOCUMENTS -->
+
+      <!--// BEGIN FARE CALC //-->
+      <table width="100%"  align="center"border="0" cellspacing="0" cellpadding="0">
+        <tr>
+<!--          <td width=200 height="20"><img src="img/hdr_fare_calc.gif" width=200 height=20 border=0></td>-->
+          <td width="31%" height="20"><img src="img/hdr_add_tkt_info.gif" width="100%" height=20 border=0></td>
+          
+          <td width="30%" height="20"><img src="img/module_headers_long_no_text_copy.gif" width="100%" height=20 border=0></td>
+          <td width="20%" height="20"><img src="img/module_headers_long_no_text_copy.gif" width="100%" height=20 border=0></td>
+          <td width="19%" height="20"><img src="img/module_headers_short_no_tex.gif" width="100%" height=20 border=0></td>
+        </tr>
+      </table>
+      <table width="100%" border="0" cellspacing="0" cellpadding="0">
+        <tr>
+          <td><table width="100%" border="0" cellspacing="0" cellpadding="0">
+              <tr>
+                <td width="25%" height="24"class="contentboldtext" align="right" nowrap>&nbsp;Service Carrier ID:&nbsp;</td>
+                <td width="20%" class="contenttext">
+                
+                    
+                    
+                    <div class="formElementSmall">                        
+                        <select name="serviceCarrierTypeId" disabled="disabled" class="contenttext"><option value=""></option>
+<option value="7906">7906-Amadeus</option>
+<option value="5880">5880-Apollo</option>
+<option value="9413">9413-Farelogix</option>
+<option value="7733">7733-Galileo</option>
+<option value="0011" selected="selected">0011-Sabre</option>
+<option value="8901">8901-TASF</option>
+<option value="5235">5235-Worldspan</option>
+<option value="0276">0276-Orbitz Direct (AS)</option></select>
+                    </div>
+                    
+                </td>
+                
+                <td width="5%" class="contenttext">
+                    
+                    <div class="formElementSmall">
+                        <select name="methodOfTicketingTypeId" disabled="disabled" class="contenttext"><option value=""></option>
+<option value="/" selected="selected">/</option>
+<option value="X">X</option></select>
+                        </div>
+                    
+                </td>
+                <td width="50%"></td>
+              </tr>
+              <tr>
+                <td height="24" class="contentboldtext" align="right">Self Sale/Intl Cd:&nbsp;</td>
+                <td class="contenttext">
+                    
+                    <div class="formElementSmall">
+                        <select name="selfSaleIntlTypeId" disabled="disabled" class="contenttext"><option value=""></option>
+<option value="X" selected="selected">X-International Sale</option>
+<option value="S">S-Self Sales Domestic</option>
+<option value="X/S">X/S-Self Sales International</option></select>
+                        </div>
+                    
+                </td>
+                <td>&nbsp;</td>
+                <td>&nbsp;</td>
+              </tr>
+              <tr>
+                <td height="24" class="contentboldtext" align="right">Intl Sale Ind:&nbsp;</td>
+                <td class="contenttext">
+                    
+                    
+                        <div class="formElementSmall">
+                        <select name="intlSaleTypeId" disabled="disabled" class="contenttext"><option value="" selected="selected"></option>
+<option value="SITI">SITI-Sold In/Ticketed In</option>
+<option value="SITO">SITO-Sold In/Ticketed Out</option>
+<option value="SOTI">SOTI-Sold Out/Ticketed In</option>
+<option value="SOTO">SOTO-Sold Out/Ticketed Out</option></select>
+                        </div>
+                    
+                 </td>
+                <td>&nbsp;</td>
+                <td>&nbsp;</td>
+              </tr>
+              <tr>
+                <td>&nbsp;</td>
+              </tr>
+            </table></td>
+          <td><table width="100%" border="0" cellspacing="0" cellpadding="0">
+              <tr>
+                <td height="24" class="contentboldtext">Fare Calculation:</td>
+              </tr>
+              
+              <tr>
+                <td height="24" class="contenttext">
+                
+<!-- 07-006 Starts (FARE CALC) -->
+<!-- MASKED -->
+                    
+                
+                <!-- FC masked -->
+                   
+                   
+                      <textarea name="maskedFC" cols="60" rows="5" readonly="readonly" class="disabled">FP VI*****************1219/   08551I /FCNYC MU SHA MU NGB112.50MU SHA MU NYC112.50NUC225.00END ROE1.00 XT5.50YC7.00XY3.96XA5.60AY13.40CN 4.50XFJFK4.5</textarea>
+                                   
+                
+               
+<!-- NOT MASKED -->                
+                
+<!-- 07-006 Ends -->    
+                </td>
+                
+              </tr>
+              <tr>
+                <td height="24"></td>
+              </tr>
+            </table>
+            <!--// END FARE CALC //-->
+          </td>
+        </tr>
+
+      </table>
+      <!--// END BODY //-->
+      <!--// BEGIN FOOTER//-->
+      
+<table width="920" border="0"  align="center" cellpadding="0" cellspacing="0">
+  <tr> 
+  
+    <td width="518">&nbsp; </td>
+    
+<!-- ET -->    
+    <td width="74">
+          <input type="image" name="ETButton" src="img/btn_ET.gif" title="End Transaction" alt="End Transaction"> 
+    </td>    
+    
+<!-- IGNORE -->    
+    <td width="74">
+    
+             <input type="image" name="ignoreButton" src="img/btn_ignore.gif" title="Ignore Transaction" alt="Ignore Transaction"> 
+    
+    </td>
+    
+    <td width="58">    
+      
+
+      </td>
+        <td width="36" >
+
+      
+            <input type="image" name="nextButton" src="img/btn_next.gif" title="Next Page" alt="Next Page">
+      
+      
+          
+     
+      
+
+      
+    </td>
+  </tr>
+</table>
+
+       </td>
+  </tr>
+</table>
+</form> 
+</body>
+</html>
+
+
+
+
+<!--// FOOTER //-->
+<BR>
+
+<TABLE width="920" border="0" cellspacing="0" cellpadding="0" align="center" class="footertext">
+  <TR>
+    <TD width="100%" nowrap align="center"><IMG src="img/trans.gif" alt="" height="1" border="0"></TD>
+  </TR>
+</TABLE>
+<table width="920" border="0" cellspacing="0" cellpadding="0" align="center" class="footertext">
+  <tr> 
+    <td width="90" align="left" nowrap><div align="left"><a style="color: #005C9C;" href="http://www.arccorp.com/legal/arc-privacy-policy.jsp" title="Click here for the Privacy Policy" target="_blank">Privacy 
+        Policy</a></div></td>
+    <td width="135" align="left" nowrap><div align="left"><a style="color: #005C9C;" href="http://www.arccorp.com/legal/arc-site-terms-of-use.jsp" title="Click here for IAR 2.0 Terms of Use" target="_blank">IAR 
+        2.0 Terms of Use</a></div></td>
+    <td width="130" align="left" nowrap><div align="left"><a style="color: #005C9C;" href="http://www.arccorp.com/support/product-support-iar.jsp" title="Click here for the IAR Resource Center" target="_blank">IAR 
+        Resource Center</a></div></td>
+    <td width="90" align="left" nowrap><div align="left"><a style="color: #005C9C;" href="http://www.arccorp.com/aboutus/contact-us.jsp" title="Click here for Contact Us" target="_blank"> 
+        Contact Us</a></div></td>
+    <td width="475" align="left" nowrap>&nbsp;</td>
+  </tr>
+  <tr> 
+    <td colspan="4" align="left" class="footertext" style="color:#333333;" nowrap><BR> &copy; Copyright 
+      2017 Airlines Reporting Corporation (ARC). All rights reserved.<BR></td>
+  </tr>
+</table>
+<TABLE width="920" border="0" cellspacing="0" cellpadding="0" align="center" class="footertext">
+  <TR>
+    <TD width="100%" nowrap align="center"><IMG src="img/trans.gif" alt="" height="1" border="0"></TD>
+  </TR>
+</TABLE>
+<!--// END FOOTER //-->
+</BODY>
+</HTML>
+
+
+
+<!--// END FOOTER//-->

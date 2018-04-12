@@ -140,6 +140,7 @@ def execute(post, action, token, from_date, to_date):
 
         post['isPutError'] = True
 
+    post['errorCode'] = agent_code
     financialDetails_html = arc_model.financialDetails(token, is_check_payment, commission, waiverCode, maskedFC, seqNum,
                                                        documentNumber, tour_code, qc_tour_code, certificates, agent_code,
                                                        agent_codes, is_et_button, is_check_update=False)
@@ -214,10 +215,6 @@ def check(post, action, token, from_date, to_date):
         return
     elif is_void_pass == 1:
         post['Status'] = 4
-    # voided_index = modify_html.find('Document is being displayed as view only')
-    # if voided_index >= 0:
-    #     post['Status'] = 2
-    #     return
 
     token, maskedFC, arc_commission, waiverCode, certificates = arc_regex.modifyTran(modify_html)
     if not token:
@@ -289,15 +286,15 @@ def insert(datas):
             comm = "null"
 
         if not data['ArcId']:
-            sqls.append('''insert into IarUpdate(Id,Commission,TourCode,TicketDesignator,IsUpdated,TicketId,channel) values (newid(),%s,'%s','%s',%d,'%s',2);''' % (comm, data['ArcTourCodeUpdated'], data['TicketDesignator'],
-                                                           is_updated, data['Id']))
+            sqls.append('''insert into IarUpdate(Id,Commission,TourCode,TicketDesignator,IsUpdated,TicketId,channel,errorCode) values (newid(),%s,'%s','%s',%d,'%s',2,'%s');''' % (comm, data['ArcTourCodeUpdated'], data['TicketDesignator'],
+                                                           is_updated, data['Id'], data['errorCode']))
         else:
             run_time = ""
             if data['Status'] != 0:
                 run_time = ",runTimes=ISNULL(runTimes,0)+1"
 
-            sqls.append('''update IarUpdate set Commission=%s,TourCode='%s',TicketDesignator='%s',IsUpdated=%d,channel=2,updateDateTime=GETDATE()%s where Id='%s';''' % (
-                comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, run_time, data['ArcId']))
+            sqls.append('''update IarUpdate set Commission=%s,TourCode='%s',TicketDesignator='%s',IsUpdated=%d,channel=2,updateDateTime=GETDATE()%s,errorCode='%s' where Id='%s';''' % (
+                comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, run_time, data['errorCode'], data['ArcId']))
 
     if not sqls:
         logger.warn("Insert or update no data")
@@ -423,6 +420,7 @@ for i in rows:
     v['isPutError'] = False
     v['hasPutError'] = False
     v['FareType'] = i.FareType
+    v['errorCode'] = ""
     list_data.append(v)
 
 

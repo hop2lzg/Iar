@@ -174,17 +174,11 @@ def insert(datas):
             comm = "null"
 
         if not data['ArcId']:
-            sqls.append('''insert into IarUpdate(Id,Commission,TourCode,TicketDesignator,IsUpdated,TicketId,channel) values (newid(),%s,'%s','%s',%d,'%s',1);''' % (
+            sqls.append('''insert into IarUpdate(Id,Commission,TourCode,TicketDesignator,IsUpdated,TicketId,channel,errorCode) values (newid(),%s,'%s','%s',%d,'%s',1,'QC-AUTO');''' % (
                 comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, data['Id']))
-
-            # insert_sql = insert_sql + '''insert into IarUpdate(Id,Commission,TourCode,TicketDesignator,IsUpdated,TicketId,channel) values (newid(),%s,'%s','%s',%d,'%s',1);''' % (
-            #     comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, data['Id'])
         else:
-            sqls.append('''update IarUpdate set Commission=%s,TourCode='%s',TicketDesignator='%s',IsUpdated=%d,channel=1,updateDateTime=GETDATE() where Id='%s';''' % (
+            sqls.append('''update IarUpdate set Commission=%s,TourCode='%s',TicketDesignator='%s',IsUpdated=%d,channel=1,updateDateTime=GETDATE(),errorCode='QC-AUTO' where Id='%s';''' % (
                 comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, data['ArcId']))
-
-            # insert_sql = insert_sql + '''update IarUpdate set Commission=%s,TourCode='%s',TicketDesignator='%s',IsUpdated=%d,channel=1,updateDateTime=GETDATE() where Id='%s';''' % (
-            #     comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, data['ArcId'])
 
     if not sqls:
         logger.warn("Insert or update no data")
