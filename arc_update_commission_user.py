@@ -334,17 +334,18 @@ and t.IssueDate>=@start
 and t.IssueDate<@end
 union
 select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,t.FareType,
-t.Comm,t.TourCode,t.Comm UpdateComm,t.TourCode UpdateTourCode,qc.AGStatus,'OPA' updatedByRole,iar.Id IarId from Ticket t
+t.Comm,t.TourCode,qc.OPComm UpdateComm,qc.OPTourCode UpdateTourCode,qc.AGStatus,'OPA' updatedByRole,iar.Id IarId from Ticket t
 left join TicketQC qc
 on t.Id=qc.TicketId
 left join IarUpdate iar
 on t.Id=iar.TicketId
 where (qc.ARCupdated=0 or (qc.ARCupdated=1 and iar.IsUpdated=0 and iar.runTimes=0))
 and qc.OPStatus=1
+and qc.OPComm is not null
 and (qc.AGStatus<>3 or (qc.AGStatus=3 and ISNULL(qc.OPDate,'1900-1-1') >= ISNULL(qc.AGDate,'1900-1-1')))
-and (qc.OPComm is null or t.Comm<>qc.OPComm or t.TourCode<>qc.OPTourCode)
+and (qc.OPComm<> t.Comm or ISNULL(qc.OPTourCode,'')<>ISNULL(t.TourCode,''))
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
-and (iar.Commission is null or iar.Commission<>t.Comm or ISNULL(iar.TourCode,'')<>ISNULL(t.TourCode,''))''' + op_users_sql + '''
+and (iar.Commission is null or iar.Commission<>qc.OPComm or ISNULL(iar.TourCode,'')<>ISNULL(qc.OPTourCode,''))''' + op_users_sql + '''
 and t.IssueDate>=@start
 and t.IssueDate<@end
 order by IssueDate

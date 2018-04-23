@@ -12,6 +12,7 @@ conf = ConfigParser.ConfigParser()
 conf.read('../iar_update.conf')
 agent_codes = conf.get("certificate", "agentCodes").split(',')
 error_codes = conf.get("error", "errorCodes")
+list_data = []
 
 
 def run(user_name, arc_numbers, ped, action):
@@ -81,19 +82,6 @@ def execute(data):
 
 
 def remove(today, weekday, ped, action, arc_number):
-    listTransactions_html = arc_model.listTransactions(ped, action, arc_number)
-    if not listTransactions_html:
-        logger.error('go to listTransactions_html error')
-        return
-    token, from_date, to_date = arc_regex.listTransactions(listTransactions_html)
-    if not token:
-        logger.error('regex listTransactions token error')
-        return
-    search_html = arc_model.searchError(ped, action, arc_number, token, from_date, to_date)
-    if not search_html:
-        logger.error('go to seach error')
-        return
-
     list_entry_date = []
     if weekday >= 2:
         list_entry_date.append((today + datetime.timedelta(days=-2)).strftime('%d%b%y').upper())
@@ -108,27 +96,57 @@ def remove(today, weekday, ped, action, arc_number):
     if list_entry_date:
         entry_date = '|'.join(list_entry_date)
 
-    list_regex_search = arc_regex.search_error(search_html, entry_date, error_codes)
-
-    if not list_regex_search:
-        logger.warning('Regex search error')
+    listTransactions_html = arc_model.listTransactions(ped, action, arc_number)
+    if not listTransactions_html:
+        logger.error('go to listTransactions_html error')
+        return
+    token, from_date, to_date = arc_regex.listTransactions(listTransactions_html)
+    if not token:
+        logger.error('regex listTransactions token error')
         return
 
-    logger.info(list_regex_search)
-    for search in list_regex_search:
-        v = {}
-        v['ticketNumber'] = search[2] + search[0]
-        v['seqNum'] = search[1]
-        v['documentNumber'] = search[0]
-        v['date'] = search[4]
-        v['arcNumber'] = arc_number
-        v['Status'] = 0
-        # print v
-        execute(v)
+    for page in range(0, 10):
+        logger.debug("Page :%d" % page)
+        is_next = False
+        if page > 0:
+            is_next = True
+        search_error_html = arc_model.search_error(ped, action, arc_number, token, from_date, to_date, page, is_next)
+        if not search_error_html:
+            logger.error('go to seach error')
+            break
 
-        list_data.append(v)
+        has_next_button = False
+        if search_error_html.find("title=\"Next Page\" alt=\"Next Page\">") >= 0:
+            has_next_button = True
 
-list_data = []
+        list_regex_search = arc_regex.search_error(search_error_html, entry_date, error_codes)
+        logger.info("Page: %d, Regex errors: %s" % (page, list_regex_search))
+
+        if list_regex_search:
+            for search in list_regex_search:
+                v = {}
+                v['ticketNumber'] = search[2] + search[0]
+                v['seqNum'] = search[1]
+                v['documentNumber'] = search[0]
+                v['date'] = search[4]
+                v['arcNumber'] = arc_number
+                v['Status'] = 0
+                execute(v)
+
+                list_data.append(v)
+        else:
+            logger.warning("Regex search maybe error, at page: %d" % page)
+
+        if has_next_button:
+            token = arc_regex.get_token(search_error_html)
+            if token:
+                continue
+            else:
+                logger.warning("Search error html regex token error, at page: %d" % page)
+                break
+        else:
+            break
+
 try:
     date_time = datetime.datetime.now()
     date_week = date_time.weekday()
@@ -151,6 +169,7 @@ try:
 except Exception as e:
     logger.critical(e)
 
+print list_data
 mail_smtp_server = conf.get("email", "smtp_server")
 mail_from_addr = conf.get("email", "from")
 mail_to_addr = conf.get("email", "to_remove_error").split(';')

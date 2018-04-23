@@ -47,6 +47,7 @@ class ArcModel:
             f.write(html)
 
     def __save_csv(self, name, is_this_week, fileName, content):
+        # print "SAVE: %s ,Is this week: %s, file: %s" % (name, is_this_week, fileName)
         file_path = "day"
         if not is_this_week:
             file_path = "week"
@@ -91,6 +92,13 @@ class ArcModel:
 
         # self.logger.debug("TRY REQUEST OVER")
         return res
+
+    def csv_write(self, file_path, file_name, content):
+        if not os.path.exists(file_path):
+            os.makedirs(file_path)
+
+        with open(file_path + '\\' + file_name, 'wb') as f:
+            f.write(content)
 
     def login(self, name, password):
         self.logger.debug("START HOME")
@@ -172,18 +180,67 @@ class ArcModel:
             self.__save_page("listTransactions", arcNumber, html)
             return html
 
-    def get_csv(self, name, is_this_week, ped, action, arcNumber, token, from_date, to_date):
+    def create_list(self, token, ped, action, arc_number, selected_status_id=''):
+        self.logger.debug("CREATE LIST: %s" % arc_number)
+        values = {
+            'org.apache.struts.taglib.html.TOKEN': token,
+            'arcNumber': arc_number,
+            'ped': ped,
+            'selectedStatusId': selected_status_id,
+            'documentNumber': '',
+            'docNumberEnd': '',
+            'selectedDocumentType': '',
+            'selectedTransactionType': 'SA',
+            'selectedFormOfPayment': 'CA',
+            'selectedInternationalIndicator': '',
+            'systemProvider': '',
+            'dateTypeRadioButtons': 'ped',
+            'viewFromDate': '02APR18',
+            'viewToDate': '08APR18',
+            'commTypeRadioButtons': 'commEqualTo',
+            'commissionAmount': '',
+            'threeDigitCarrierCode': '',
+            'selectedNumberOfResults': '20',
+            'list.x': '19',
+            'list.y': '8',
+            'printOption': '1',
+            'printaction': '0'
+        }
+
+        url = "https://iar2.arccorp.com/IAR/listTransactions.do"
+        data = urllib.urlencode(values)
+        headers = {
+            'Host': 'iar2.arccorp.com',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:59.0) Gecko/20100101 Firefox/59.0',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'zh-CN,zh;q=0.8,zh-TW;q=0.7,zh-HK;q=0.5,en-US;q=0.3,en;q=0.2',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Referer': 'https://iar2.arccorp.com/IAR/listTransactions.do?ped=' + ped + '&action=' + action + '&arcNumber=' + arc_number + '',
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Content-Length': len(data),
+            'Connection': self._connection,
+            'Upgrade-Insecure-Requests': self._upgrade_insecure_requests
+        }
+        # print headers
+        req = urllib2.Request(url, data, headers)
+        res = self.__try_request(req)
+        if res:
+            html = res.read()
+            self.__save_page("create_list", arc_number, html)
+            return html
+
+    def get_csv(self, name, is_this_week, ped, action, arcNumber, token, from_date, to_date, selected_status_id='', transaction_type='', form_of_payment='', tick=''):
         self.logger.debug("DOWNLOAD CSV: " + arcNumber)
         values = {
             'org.apache.struts.taglib.html.TOKEN': token,
             'arcNumber': arcNumber,
             'ped': ped,
-            'selectedStatusId': '',
+            'selectedStatusId': selected_status_id,
             'documentNumber': '',
             'docNumberEnd': '',
             'selectedDocumentType': '',
-            'selectedTransactionType': '',
-            'selectedFormOfPayment': '',
+            'selectedTransactionType': transaction_type,
+            'selectedFormOfPayment': form_of_payment,
             'selectedInternationalIndicator': '',
             'systemProvider': '',
             'dateTypeRadioButtons': 'ped',
@@ -199,6 +256,14 @@ class ArcModel:
             'action': ''
         }
 
+        if transaction_type:
+            del values['action']
+
+            values['download.x'] = "28"
+            values['printOption'] = "2"
+            values['printaction'] = "0"
+
+        # print values
         url = "https://iar2.arccorp.com/IAR/listTransactions.do"
         data = urllib.urlencode(values)
         headers = {
@@ -216,12 +281,18 @@ class ArcModel:
             'Upgrade-Insecure-Requests': self._upgrade_insecure_requests,
             'User-Agent': self._user_agent
         }
+
+        if transaction_type:
+            headers['Referer'] = "https://iar2.arccorp.com/IAR/listTransactions.do"
         req = urllib2.Request(url, data, headers)
         res = self.__try_request(req)
         if res:
             csv = res.read()
             if csv.find("<link") == -1:
-                self.__save_csv(name, is_this_week, arcNumber + '.csv', csv)
+                self.__save_csv(name, is_this_week, arcNumber + ("" if not tick else "_" + tick) + '.csv', csv)
+                if transaction_type:
+                    # self.logger.debug("ARC: %s, CSV: %s" % (arcNumber, csv))
+                    return csv
         else:
             self.logger.warning('Download csv error :' + arcNumber)
 
@@ -325,6 +396,64 @@ class ArcModel:
         if res:
             html = res.read()
             self.__save_page("search", arcNumber, html)
+            return html
+
+    def search_error(self, ped, action, arcNumber, token, from_date, to_date, page_index, is_next=False):
+        self.logger.debug("SEARCH TICKET ERROR, NEXT: %s" % is_next)
+        values = {
+            'org.apache.struts.taglib.html.TOKEN': token,
+            'arcNumber': arcNumber,
+            'ped': ped,
+            'selectedStatusId': 'E',
+            'documentNumber': "",
+            'docNumberEnd': "",
+            'selectedDocumentType': 'ET',
+            'selectedTransactionType': '',
+            'selectedFormOfPayment': '',
+            'selectedInternationalIndicator': '',
+            'systemProvider': '',
+            'dateTypeRadioButtons': 'ped',
+            'viewFromDate': from_date,
+            'viewToDate': to_date,
+            'commTypeRadioButtons': 'commEqualTo',
+            'commissionAmount': '',
+            'threeDigitCarrierCode': '',
+            'selectedNumberOfResults': '250',
+            'list.x': '45',
+            'list.y': '11',
+            'printOption': '1',
+            'printaction': '0'
+        }
+
+        if is_next:
+            del values["list.x"]
+            del values["list.y"]
+
+            values["next.x"] = "18"
+            values["next.y"] = "10"
+
+        url = "https://iar2.arccorp.com/IAR/listTransactions.do"
+        data = urllib.urlencode(values)
+
+        headers = {
+            'Accept': self._accpet,
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept-Language': self._accept_language,
+            'Cache-Control': self._cache_control,
+            'Connection': self._connection,
+            'Content-Length': len(data),
+            'Content-Type': self._content_type,
+            'Host': 'iar2.arccorp.com',
+            'Origin': 'https://iar2.arccorp.com',
+            'Referer': 'https://iar2.arccorp.com/IAR/listTransactions.do?ped=' + ped + '&action=' + action + '&arcNumber=' + arcNumber + '',
+            'Upgrade-Insecure-Requests': self._upgrade_insecure_requests,
+            'User-Agent': self._user_agent
+        }
+        req = urllib2.Request(url, data, headers)
+        res = self.__try_request(req)
+        if res:
+            html = res.read()
+            self.__save_page("search" + str(page_index), arcNumber, html)
             return html
 
     def modifyTran(self, seqNum, documentNumber):
@@ -673,6 +802,12 @@ class Regex:
             action = result[0]
             arcNumber = result[1]
         return ped, action, arcNumber
+
+    def create_list(self, html):
+        return self.__token(html)
+
+    def get_token(self, html):
+        return self.__token(html)
 
     def listTransactions(self, html):
         token = from_date = to_date = None

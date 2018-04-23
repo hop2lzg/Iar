@@ -264,6 +264,8 @@ sql = ('''declare @t date
 set @t=DATEADD(DAY,-1,GETDATE())
 select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,t.Comm,QCComm,t.TourCode,
 QCTourCode,PaymentType,t.FareType,iu.Id IarId from Ticket t
+left join TicketQC qc
+on t.Id=qc.TicketId
 left join IarUpdate iu
 on t.Id=iu.TicketId
 where Status not like '[NV]%'
@@ -271,7 +273,8 @@ and Status not in ('ER','RR','RX','RD')
 and FareType not in ('BULK','SR')
 and IssueDate=@t
 and (iu.Id is null or iu.IsUpdated=0)
---and (iu.AuditorStatus is null or iu.AuditorStatus=0)
+and (qc.Id is null or (qc.OPStatus not in (1,2,15) and qc.AGStatus not in (1,3)))
+and (iu.AuditorStatus is null or iu.AuditorStatus=0)
 and t.Comm>=0
 and t.Comm<QCComm-5
 and (ISNULL(t.TourCode,'')=''
