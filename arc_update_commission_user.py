@@ -340,7 +340,7 @@ on t.Id=qc.TicketId
 left join IarUpdate iar
 on t.Id=iar.TicketId
 where (qc.ARCupdated=0 or (qc.ARCupdated=1 and iar.IsUpdated=0 and iar.runTimes=0))
-and qc.OPStatus=1
+and qc.OPStatus in (1, 15)
 and qc.OPComm is not null
 and (qc.AGStatus<>3 or (qc.AGStatus=3 and ISNULL(qc.OPDate,'1900-1-1') >= ISNULL(qc.AGDate,'1900-1-1')))
 and (qc.OPComm<> t.Comm or ISNULL(qc.OPTourCode,'')<>ISNULL(t.TourCode,''))

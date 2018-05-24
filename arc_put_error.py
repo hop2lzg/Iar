@@ -174,6 +174,19 @@ and t.Selling>0
 ) aa
 where aa.Profit<0
 and -aa.Profit > Base*0.05
+union
+select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-ERROR' ErrorCode,iar.Id iarId from Ticket t
+left join IarUpdate iar
+on t.Id=iar.TicketId
+where t.sourceFrom='AUTOTICKET'
+and t.IssueDate=@t
+and PaymentType='C'
+and (t.TicketNumber like '78[14]%' or t.TicketNumber like '731%')
+and t.Charge<t.Total
+and t.GDS='1A'
+and ISNULL(t.McoNumber,'')<>''
+and (iar.Id is null or iar.IsPutError=0)
+and (iar.AuditorStatus is null or iar.AuditorStatus=0)
 order by ArcNumber,Ticket
 ''')
 

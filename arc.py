@@ -418,7 +418,7 @@ class ArcModel:
             'commTypeRadioButtons': 'commEqualTo',
             'commissionAmount': '',
             'threeDigitCarrierCode': '',
-            'selectedNumberOfResults': '250',
+            'selectedNumberOfResults': '500',
             'list.x': '45',
             'list.y': '11',
             'printOption': '1',

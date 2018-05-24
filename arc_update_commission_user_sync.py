@@ -28,6 +28,7 @@ def check(post, action, token, from_date, to_date):
 
     search_html = arc_model.search(ped, action, arcNumber, token, from_date, to_date, documentNumber)
     if not search_html:
+        logger.debug("search html None")
         return
     seqNum, documentNumber = arc_regex.search(search_html)
     if not seqNum:
@@ -45,9 +46,15 @@ def check(post, action, token, from_date, to_date):
         post['Status'] = 4
 
     token, maskedFC, arc_commission, waiverCode, certificates = arc_regex.modifyTran(modify_html)
+    logger.debug("IAR COMM: %s." % arc_commission)
     if not token:
         return
+
+    if arc_commission == "":
+        arc_commission = "0"
+
     post['ArcCommUpdated'] = arc_commission
+
     financialDetails_html = arc_model.financialDetails(token, is_check_payment, commission, waiverCode, maskedFC,
                                                        seqNum, documentNumber, tour_code, qc_tour_code, certificates,
                                                        "MJ", agent_codes, is_check_update=True)
@@ -56,6 +63,7 @@ def check(post, action, token, from_date, to_date):
         return
 
     token, arc_tour_code, backOfficeRemarks, ticketDesignators = arc_regex.financialDetails(financialDetails_html)
+    logger.debug("IAR TOUR CODE: %s" % arc_tour_code)
     if not token:
         return
 
@@ -109,15 +117,11 @@ def insert(datas):
         except ValueError:
             comm = "null"
         if not data['ArcId']:
-            sqls.append('''insert into IarUpdate(Id,Commission,TourCode,TicketDesignator,IsUpdated,TicketId,channel) values (newid(),%s,'%s','%s',%d,'%s',3);''' % (
+            sqls.append('''insert into IarUpdate(Id,Commission,TourCode,TicketDesignator,IsUpdated,TicketId,channel,syncTimes) values (newid(),%s,'%s','%s',%d,'%s',3,1);''' % (
                 comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, data['Id']))
-            # insert_sql = insert_sql + '''insert into IarUpdate(Id,Commission,TourCode,TicketDesignator,IsUpdated,TicketId,channel) values (newid(),%s,'%s','%s',%d,'%s',3);''' % (
-            #     comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, data['Id'])
         else:
-            sqls.append('''update IarUpdate set Commission=%s,TourCode='%s',TicketDesignator='%s',IsUpdated=%d,channel=5, updateDateTime=GETDATE() where Id='%s';''' % (
+            sqls.append('''update IarUpdate set Commission=%s,TourCode='%s',TicketDesignator='%s',IsUpdated=%d,channel=5, updateDateTime=GETDATE(),syncTimes=syncTimes+1 where Id='%s';''' % (
                 comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, data['ArcId']))
-            # insert_sql = insert_sql + '''update IarUpdate set Commission=%s,TourCode='%s',TicketDesignator='%s',IsUpdated=%d,channel=5, updateDateTime=GETDATE() where Id='%s';''' % (
-            #     comm, data['ArcTourCodeUpdated'], data['TicketDesignator'], is_updated, data['ArcId'])
 
     if not sqls:
         logger.warn("Insert or update no data")
@@ -133,6 +137,47 @@ def insert(datas):
     else:
         logger.error('insert error')
 
+
+def run(section, user_name, datas):
+    logger.debug("RUN: %s" % datas)
+    # ----------------------login
+    logger.debug(user_name)
+    # password = conf.get("geoff", user_name)
+    password = conf.get(section, user_name)
+    if not arc_model.execute_login(user_name, password):
+        return
+
+    # -------------------go to IAR
+    iar_html = arc_model.iar()
+    if not iar_html:
+        logger.error('iar error')
+        return
+    ped, action, arcNumber = arc_regex.iar(iar_html, False)
+    if not action:
+        logger.error('regex iar error')
+        arc_model.logout()
+        return
+    listTransactions_html = arc_model.listTransactions(ped, action, arcNumber)
+    if not listTransactions_html:
+        logger.error('listTransactions error')
+        arc_model.iar_logout(ped, action, arcNumber)
+        arc_model.logout()
+        return
+    token, from_date, to_date = arc_regex.listTransactions(listTransactions_html)
+    if not token:
+        logger.error('regex listTransactions error')
+        arc_model.iar_logout(ped, action, arcNumber)
+        arc_model.logout()
+        return
+    try:
+        for data in datas:
+            logger.debug(data)
+            check(data, action, token, from_date, to_date)
+    except Exception as ex:
+        logger.critical(ex)
+
+    arc_model.iar_logout(ped, action, arcNumber)
+    arc_model.logout()
 
 arc_model = arc.ArcModel("arc update commission by user sync")
 arc_regex = arc.Regex()
@@ -164,40 +209,42 @@ declare @end date
 set @start=dateadd(day,-5,getdate())
 set @end=GETDATE()
 select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
-t.Comm,t.TourCode,qc.OPComm UpdateComm,qc.OPTourCode UpdateTourCode,iar.Id IarId from Ticket t
-left join TicketQC qc
-on t.Id=qc.TicketId
-left join IarUpdate iar
-on t.Id=iar.TicketId
-where  --(qc.OPUser in ('GW','KM','PF') or OPLastUser in ('GW','KM','PF'))
-qc.OPStatus=2
-and qc.AGStatus<>3
-and t.IssueDate>=@start and t.IssueDate<@end
-and (iar.Commission is null or qc.OPComm<>iar.Commission or qc.OPTourCode<>iar.TourCode)
-and (iar.AuditorStatus is null or iar.AuditorStatus=0)
-union
-select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
 t.Comm,t.TourCode,qc.AGComm UpdateComm,qc.AGTourCode UpdateTourCode,iar.Id IarId from Ticket t
 left join TicketQC qc
 on t.Id=qc.TicketId
 left join IarUpdate iar
 on t.Id=iar.TicketId
 where qc.AGStatus=3
-and (iar.Commission is null or iar.Commission<>qc.AGComm or iar.TourCode<>qc.AGTourCode)
+and ISNULL(qc.AGDate,'1900-1-1') >= ISNULL(qc.OPDate,'1900-1-1')
+and (iar.Commission is null or iar.Commission<>qc.AGComm or ISNULL(iar.TourCode,'')<>ISNULL(qc.AGTourCode,''))
 and t.IssueDate>=@start
 and t.IssueDate<@end
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
+and iar.syncTimes<3
+union
+select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
+t.Comm,t.TourCode,qc.OPComm UpdateComm,qc.OPTourCode UpdateTourCode,iar.Id IarId from Ticket t
+left join TicketQC qc
+on t.Id=qc.TicketId
+left join IarUpdate iar
+on t.Id=iar.TicketId
+where qc.OPStatus in (1, 2, 15)
+and qc.OPComm is not null
+and (qc.AGStatus<>3 or (qc.AGStatus=3 and ISNULL(qc.OPDate,'1900-1-1') >= ISNULL(qc.AGDate,'1900-1-1')))
+and (iar.Commission is null or iar.Commission<>qc.OPComm or ISNULL(iar.TourCode,'')<>ISNULL(qc.OPTourCode,''))
+and (iar.AuditorStatus is null or iar.AuditorStatus=0)
+and iar.syncTimes<3
+and t.IssueDate>=@start
+and t.IssueDate<@end
 order by t.ArcNumber
 ''')
 
 rows = ms.ExecQuery(sql)
-# print len(rows)
 
 if len(rows) == 0:
     mail.send(mail_from_addr, mail_to_addr, mail_subject, "No data,please confirm.")
     sys.exit(0)
 
-# list_data_sql=arc_model.load()
 list_data = []
 for i in rows:
     v = {}
@@ -222,80 +269,46 @@ for i in rows:
         v['Status'] = 3
     list_data.append(v)
 
-
-def run(user_name, datas):
-    # ----------------------login
-    logger.debug(user_name)
-    password = conf.get("geoff", user_name)
-    if not arc_model.execute_login(user_name, password):
-        return
-
-    # -------------------go to IAR
-    iar_html = arc_model.iar()
-    if not iar_html:
-        logger.error('iar error')
-        return
-    ped, action, arcNumber = arc_regex.iar(iar_html, False)
-    if not action:
-        logger.error('regex iar error')
-        arc_model.logout()
-        return
-    listTransactions_html = arc_model.listTransactions(ped, action, arcNumber)
-    if not listTransactions_html:
-        logger.error('listTransactions error')
-        arc_model.iar_logout(ped, action, arcNumber)
-        arc_model.logout()
-        return
-    token, from_date, to_date = arc_regex.listTransactions(listTransactions_html)
-    if not token:
-        logger.error('regex listTransactions error')
-        arc_model.iar_logout(ped, action, arcNumber)
-        arc_model.logout()
-        return
-    try:
-        for data in datas:
-            check(data, action, token, from_date, to_date)
-    except Exception as ex:
-        logger.critical(ex)
-    # finally:
-    # 	arc_model.store(list_data_sql)
-
-    arc_model.iar_logout(ped, action, arcNumber)
-    arc_model.logout()
-
+# logger.debug(list_data)
 
 try:
     section = "arc"
     for option in conf.options(section):
         logger.debug(option)
         arc_numbers = conf.get(section, option).split(',')
+        logger.debug("arc numbers conf: %s" % arc_numbers)
         list_data_account = filter(lambda x: x['ArcNumber'] in arc_numbers, list_data)
+        # logger.debug("lambda: %s" % list_data_account)
         if not list_data_account:
             continue
-        account_id = "gttqc02"
+
+        account_id = ""
+        login_section = ""
         if option == "all":
             account_id = "gttqc02"
-        else:
-            break
-            # account_id = account_id + option
-        run(account_id, list_data_account)
+            login_section = "geoff"
+        elif option == "aca":
+            account_id = "muling-aca"
+            login_section = "login"
+        elif option == "yww":
+            account_id = "muling-yww"
+            login_section = "login"
+        elif option == "tvo":
+            account_id = "muling-tvo"
+            login_section = "login"
+
+        run(login_section, account_id, list_data_account)
 except Exception as e:
     logger.critical(e)
 finally:
     arc_model.store(list_data)
-
-# try:
-#     update(list_data)
-# except Exception as e:
-#     logger.critical(e)
 
 try:
     insert(list_data)
 except Exception as e:
     logger.critical(e)
 
-
-#-----------------export excel
+# -----------------export excel
 file_name = "iar_update_commission_by_user_sync"
 try:
     arc_model.exportExcel(list_data, file_name)

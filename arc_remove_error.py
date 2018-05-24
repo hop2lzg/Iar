@@ -83,8 +83,8 @@ def execute(data):
 
 def remove(today, weekday, ped, action, arc_number):
     list_entry_date = []
-    if weekday >= 2:
-        list_entry_date.append((today + datetime.timedelta(days=-2)).strftime('%d%b%y').upper())
+    if weekday > 2:
+        list_entry_date.append((today + datetime.timedelta(days=-3)).strftime('%d%b%y').upper())
     # list_entry_date.append((today+datetime.timedelta(days = -1)).strftime('%d%b%y').upper())
     # if weekday==3 or weekday==4:
     # 	list_entry_date.append((today+datetime.timedelta(days = -3)).strftime('%d%b%y').upper())
@@ -111,6 +111,7 @@ def remove(today, weekday, ped, action, arc_number):
         if page > 0:
             is_next = True
         search_error_html = arc_model.search_error(ped, action, arc_number, token, from_date, to_date, page, is_next)
+        # logger.debug(search_error_html)
         if not search_error_html:
             logger.error('go to seach error')
             break
@@ -137,6 +138,7 @@ def remove(today, weekday, ped, action, arc_number):
         else:
             logger.warning("Regex search maybe error, at page: %d" % page)
 
+        logger.debug("HAS NEXT BUTTON: %s" % has_next_button)
         if has_next_button:
             token = arc_regex.get_token(search_error_html)
             if token:
