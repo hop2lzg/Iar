@@ -83,12 +83,17 @@ def execute(data):
 
 def remove(today, weekday, ped, action, arc_number):
     list_entry_date = []
-    if weekday > 2:
+    if weekday == 5:
+        list_entry_date.append((today + datetime.timedelta(days=-4)).strftime('%d%b%y').upper())
         list_entry_date.append((today + datetime.timedelta(days=-3)).strftime('%d%b%y').upper())
+        list_entry_date.append((today + datetime.timedelta(days=-2)).strftime('%d%b%y').upper())
+
+    # if weekday > 2:
+    #     list_entry_date.append((today + datetime.timedelta(days=-3)).strftime('%d%b%y').upper())
     # list_entry_date.append((today+datetime.timedelta(days = -1)).strftime('%d%b%y').upper())
     # if weekday==3 or weekday==4:
     # 	list_entry_date.append((today+datetime.timedelta(days = -3)).strftime('%d%b%y').upper())
-    # elif weekday==5:
+    # elif weekday == 5:
     # 	list_entry_date.append((today+datetime.timedelta(days = -3)).strftime('%d%b%y').upper())
     # 	list_entry_date.append((today+datetime.timedelta(days = -2)).strftime('%d%b%y').upper())
 

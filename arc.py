@@ -140,7 +140,7 @@ class ArcModel:
         is_login = False
         for tries in range(max_try_num):
             html = self.login(name, password)
-            if not html or (html.find('You are already logged into My ARC') < 0 and html.find('Account Settings :') < 0):
+            if not html or (html.find('You are already logged into My ARC') < 0 and html.find('Account Settings:') < 0):
                 self.logger.error("LOGIN ERROR: %s, at %d times" % (name, tries))
                 time.sleep(1 * 60 * 3)
                 continue
@@ -345,6 +345,216 @@ class ArcModel:
         if res:
             html = res.read()
             self.__save_page("search", "search", html)
+            return html
+
+    def add_old_document(self, token, oldDocumentAirlineCodeFI, oldDocumentNumberFI, seqNum, documentNumber):
+        self.logger.debug("ADD OLD DOCUMENT, AIR: %s, DOC NUM: %s, SEQ: %s, TKT: %s." % (oldDocumentAirlineCodeFI,
+                          oldDocumentNumberFI, seqNum, documentNumber))
+        values = {
+            'org.apache.struts.taglib.html.TOKEN': token,
+            'amountCommission': "",
+            'maskedFormOfPayment': "CASH",
+            'paymentBean.approvalCode': '',
+            'paymentBean.extendedPay': "N",
+            'miscSupportTypeId': "",
+            'waiverCode': "",
+            'certificateItem[0].value': "",
+            'certificateItem[1].value': "",
+            'certificateItem[2].value': "",
+            'certificateItem[3].value': "",
+            'error22010': 'false',
+            'oldDocumentAirlineCodeFI': oldDocumentAirlineCodeFI,
+            'oldDocumentNumberFI': oldDocumentNumberFI,
+            'addOldDocumentButton.x': "57",
+            'addOldDocumentButton.y': "9",
+            'selfSaleIntlTypeId': "",
+            'maskedFC': ""
+        }
+
+        url = "https://iar2.arccorp.com/IAR/financialDetails.do"
+        data = urllib.urlencode(values)
+
+        headers = {
+            'Accept': self._accpet,
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept-Language': self._accept_language,
+            'Connection': self._connection,
+            'Content-Length': len(data),
+            'Content-Type': self._content_type,
+            'Host': 'iar2.arccorp.com',
+            'Referer': "https://iar2.arccorp.com/IAR/modifyTran.do?seqNum=" + seqNum + "&documentNumber=" + documentNumber,
+            'Upgrade-Insecure-Requests': self._upgrade_insecure_requests,
+            'User-Agent': self._user_agent
+        }
+
+        req = urllib2.Request(url, data, headers)
+        res = self.__try_request(req)
+        if res:
+            html = res.read()
+            self.__save_page("add_old_document", documentNumber, html)
+            return html
+
+    def exchange_input(self, token, documentNumber):
+        self.logger.debug("EXCHANGE INPUT.")
+        values = {
+            'org.apache.struts.taglib.html.TOKEN': token,
+            'inputOldDoc.ESAC': "",
+            'inputOldDoc.CPUI1234[0].value': "1",
+            'inputOldDoc.oldFare': "1",
+            'inputOldDoc.oldTotal': "1",
+            'inputOldDoc.oldComm': "",
+            'inputOldDoc.adminPenalty': "",
+            'inputOldDoc.commOnPenalty': "",
+            'inputOldDoc.taxCodeList[0].taxCode': "",
+            'inputOldDoc.taxCodeList[0].taxAmount': "",
+            'inputOldDoc.taxCodeList[1].taxCode': "",
+            'inputOldDoc.taxCodeList[1].taxAmount': "",
+            'inputOldDoc.taxCodeList[2].taxCode': "",
+            'inputOldDoc.taxCodeList[2].taxAmount': "",
+            'inputOldDoc.taxCodeList[3].taxCode': "",
+            'inputOldDoc.taxCodeList[3].taxAmount': "",
+            'inputOldDoc.taxCodeList[4].taxCode': "",
+            'inputOldDoc.taxCodeList[4].taxAmount': "",
+            'inputOldDoc.taxCodeList[5].taxCode': "",
+            'inputOldDoc.taxCodeList[5].taxAmount': "",
+            'inputOldDoc.taxCodeList[6].taxCode': "",
+            'inputOldDoc.taxCodeList[6].taxAmount': "",
+            'inputOldDoc.taxCodeList[7].taxCode': "",
+            'inputOldDoc.taxCodeList[7].taxAmount': "",
+            'inputOldDoc.taxCodeList[8].taxCode': "",
+            'inputOldDoc.taxCodeList[8].taxAmount': "",
+            'inputOldDoc.taxCodeList[9].taxCode': "",
+            'inputOldDoc.taxCodeList[9].taxAmount': "",
+            'inputOldDoc.taxCodeList[10].taxCode': "",
+            'inputOldDoc.taxCodeList[10].taxAmount': "",
+            'inputOldDoc.taxCodeList[11].taxCode': "",
+            'inputOldDoc.taxCodeList[11].taxAmount': "",
+            'inputOldDoc.taxCodeList[12].taxCode': "",
+            'inputOldDoc.taxCodeList[12].taxAmount': "",
+            'inputOldDoc.taxCodeList[13].taxCode': "",
+            'inputOldDoc.taxCodeList[13].taxAmount': "",
+            'inputOldDoc.taxCodeList[14].taxCode': "",
+            'inputOldDoc.taxCodeList[14].taxAmount': "",
+            'inputOldDoc.taxCodeList[15].taxCode': "",
+            'inputOldDoc.taxCodeList[15].taxAmount': "",
+            'inputOldDoc.taxCodeList[16].taxCode': "",
+            'inputOldDoc.taxCodeList[16].taxAmount': "",
+            'inputOldDoc.taxCodeList[17].taxCode': "",
+            'inputOldDoc.taxCodeList[17].taxAmount': "",
+            'inputOldDoc.taxCodeList[18].taxCode': "",
+            'inputOldDoc.taxCodeList[18].taxAmount': "",
+            'inputOldDoc.taxCodeList[19].taxCode': "",
+            'inputOldDoc.taxCodeList[19].taxAmount': "",
+            'inputOldDoc.taxCodeList[20].taxCode': "",
+            'inputOldDoc.taxCodeList[20].taxAmount': "",
+            'inputOldDoc.pfcList[0].value': "",
+            'inputOldDoc.pfcList[1].value': "",
+            'inputOldDoc.pfcList[2].value': "",
+            'inputOldDoc.pfcList[3].value': "",
+            'addButton.x': "28",
+            'addButton.y': "8"
+        }
+
+        url = "https://iar2.arccorp.com/IAR/exchangeInput.do"
+        data = urllib.urlencode(values)
+
+        headers = {
+            'Accept': self._accpet,
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept-Language': self._accept_language,
+            'Connection': self._connection,
+            'Content-Length': len(data),
+            'Content-Type': self._content_type,
+            'Host': 'iar2.arccorp.com',
+            'Referer': "https://iar2.arccorp.com/IAR/financialDetails.do",
+            'Upgrade-Insecure-Requests': self._upgrade_insecure_requests,
+            'User-Agent': self._user_agent
+        }
+
+        req = urllib2.Request(url, data, headers)
+        res = self.__try_request(req)
+        if res:
+            html = res.read()
+            self.__save_page("exchange_input", documentNumber, html)
+            return html
+
+    def exchange_summary(self, token, documentNumber):
+        self.logger.debug("EXCHANGE SUMMARY.")
+        values = {
+            'org.apache.struts.taglib.html.TOKEN': token,
+            'navButton1.x': "79",
+            'navButton1.y': "16",
+            'adjustment': "",
+            'maskedFormOfPayment': "CA54000000",
+            'paymentBeanExchange.approvalCode': "",
+            'paymentBeanExchange.extendedPay': "N"
+        }
+
+        url = "https://iar2.arccorp.com/IAR/financialDetails.do"
+        data = urllib.urlencode(values)
+
+        headers = {
+            'Accept': self._accpet,
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept-Language': self._accept_language,
+            'Connection': self._connection,
+            'Content-Length': len(data),
+            'Content-Type': self._content_type,
+            'Host': 'iar2.arccorp.com',
+            'Referer': "https://iar2.arccorp.com/IAR/exchangeInput.do",
+            'Upgrade-Insecure-Requests': self._upgrade_insecure_requests,
+            'User-Agent': self._user_agent
+        }
+
+        req = urllib2.Request(url, data, headers)
+        res = self.__try_request(req)
+        if res:
+            html = res.read()
+            self.__save_page("exchange_summary", documentNumber, html)
+            return html
+
+    def remove_old_document(self, token, commission, maskedFC, documentNumber):
+        self.logger.debug("REMOVE OLD DOCUMENT.")
+        values = {
+            'org.apache.struts.taglib.html.TOKEN': token,
+            'amountCommission': commission,
+            'miscSupportTypeId': "",
+            'waiverCode': "",
+            'certificateItem[0].value': "",
+            'certificateItem[1].value': "",
+            'certificateItem[2].value': "",
+            'certificateItem[3].value': "",
+            'error22010': "false",
+            'oldDocumentAirlineCodeFI': "",
+            'oldDocumentNumberFI': "",
+            'removeOldDocumentButton.x': "13",
+            'removeOldDocumentButton.y': "7",
+            'selectedOldDocuments': "0",
+            'newDocumentNumber': "",
+            'maskedFC': maskedFC,
+        }
+
+        url = "https://iar2.arccorp.com/IAR/exchangeSummary.do"
+        data = urllib.urlencode(values)
+
+        headers = {
+            'Accept': self._accpet,
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept-Language': self._accept_language,
+            'Connection': self._connection,
+            'Content-Length': len(data),
+            'Content-Type': self._content_type,
+            'Host': 'iar2.arccorp.com',
+            'Referer': "https://iar2.arccorp.com/IAR/exchangeSummary.do",
+            'Upgrade-Insecure-Requests': self._upgrade_insecure_requests,
+            'User-Agent': self._user_agent
+        }
+
+        req = urllib2.Request(url, data, headers)
+        res = self.__try_request(req)
+        if res:
+            html = res.read()
+            self.__save_page("remove_old_document", documentNumber, html)
             return html
 
     def searchError(self, ped, action, arcNumber, token, from_date, to_date):

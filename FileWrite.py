@@ -1,8 +1,8 @@
 import os
 
-path = "zg" + '\\' + "day"
-if not os.path.exists(path):
-    os.makedirs(path)
+# path = "zg" + '\\' + "day"
+# if not os.path.exists(path):
+#     os.makedirs(path)
 
 
 # with open(path + '\\' + "test.csv", 'wb') as f:
@@ -10,21 +10,10 @@ if not os.path.exists(path):
 #     print "start write %s " % f.closed
 #     f.write("test")
 #     print "end write %s " % f.closed
-
-# print "end %s " % f.closed
-
-try:
-    f = open(path + 's\\' + "test.csv", 'wb')
-    # print "start %s " % f.closed
-    #
-    # print "start write %s " % f.closed
-    f.write("test")
-    # print "end write %s " % f.closed
-finally:
-    if f:
-        f.close()
-    # print "start close %s " % f.closed
-    #
-    # print "end close %s " % f.closed
-
-# print "end %s " % f.closed
+# f = open("45668571.csv")
+# csv = f.read()
+# lines = csv.split('\n')
+#
+# for line in lines:
+#     if line and lines.index(line) != 0:
+#         print "index:%d, type: %s, length: %d, text: %s" % (lines.index(line), type(line), len(line), line)
