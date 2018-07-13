@@ -127,6 +127,16 @@ def execute(post, action, token, from_date, to_date):
     logger.info("ARC commission: %s  updating commission: %s" % (arc_commission, commission))
     arc_commission_is_exception, arc_commission_float = convert_to_float(arc_commission)
     commission_is_exception, commission_float = convert_to_float(commission)
+
+    is_exchange = False
+    tran_type = arc_regex.tran_type(modify_html)
+    if tran_type and tran_type.find("EX") >= 0:
+        logger.info("EXCHANGE, ARC: %s, TKT: %s.", arcNumber, documentNumber)
+        is_exchange = True
+
+    if is_exchange:
+        agent_code = ""
+
     if arc_commission_is_exception or commission_is_exception or (post['updatedByRole'] != "AG" and arc_commission_float > commission_float):
         if arc_commission_is_exception or commission_is_exception:
             agent_code = "QC-FAIL"
@@ -145,6 +155,7 @@ def execute(post, action, token, from_date, to_date):
         post['isPutError'] = True
 
     post['errorCode'] = agent_code
+
     financialDetails_html = arc_model.financialDetails(token, is_check_payment, commission, waiverCode, maskedFC, seqNum,
                                                        documentNumber, tour_code, qc_tour_code, certificates, agent_code,
                                                        agent_codes, is_et_button, is_check_update=False)

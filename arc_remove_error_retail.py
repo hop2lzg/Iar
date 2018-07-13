@@ -15,10 +15,10 @@ error_codes = conf.get("error", "errorCodes")
 list_data = []
 
 
-def run(user_name, arc_numbers, ped, action):
+def run(section, user_name, arc_numbers, ped, action):
     # ----------------------login
     logger.debug(user_name)
-    password = conf.get("login", user_name)
+    password = conf.get(section, user_name)
 
     if not arc_model.execute_login(user_name, password):
         return
@@ -158,8 +158,9 @@ def remove(today, weekday, ped, action, arc_number):
 try:
     date_time = datetime.datetime.now()
     date_week = date_time.weekday()
-    if date_week == 0:
-        error_codes = error_codes + "|QC-RE"
+    # if date_week < 2:
+    #     error_codes = "QC-RE"
+    error_codes = "QC-RE"
     date_ped = date_time + datetime.timedelta(days=(6 - date_time.weekday()))
     if date_week < 2:
         date_ped = date_ped + datetime.timedelta(days=-7)
@@ -172,17 +173,17 @@ try:
         arc_numbers = conf.get(section, option).split(',')
         account_id = "muling-"
         if option == "all":
-            account_id = conf.get("accounts", "all")
+            account_id = "gttqc02"
         else:
-            account_id = account_id + option
-        run(account_id, arc_numbers, ped, action)
+            continue
+        run("geoff", account_id, arc_numbers, ped, action)
 except Exception as e:
     logger.critical(e)
 
 mail_smtp_server = conf.get("email", "smtp_server")
 mail_from_addr = conf.get("email", "from")
 mail_to_addr = conf.get("email", "to_remove_error").split(';')
-mail_subject = conf.get("email", "subject") + " remove error"
+mail_subject = conf.get("email", "subject") + " remove error(retail)"
 
 try:
     body = ''

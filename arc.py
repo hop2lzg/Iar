@@ -93,6 +93,25 @@ class ArcModel:
         # self.logger.debug("TRY REQUEST OVER")
         return res
 
+    def set_certificate_item(self, certificates, error_code, agent_codes):
+        certificateItems = []
+        if certificates:
+            for i in certificates:
+                if i[1] not in agent_codes:
+                    certificateItems.append(i[1])
+
+        certificate_item_length = len(certificateItems)
+        for i in range(0, 3):
+            if i >= certificate_item_length:
+                certificateItems.append("")
+
+        if not error_code and len(certificateItems) == 3:
+            certificateItems.insert(3, "")
+        elif error_code and len(certificateItems) == 3:
+            certificateItems.insert(0, error_code)
+
+        return certificateItems
+
     def csv_write(self, file_path, file_name, content):
         if not os.path.exists(file_path):
             os.makedirs(file_path)
@@ -180,32 +199,47 @@ class ArcModel:
             self.__save_page("listTransactions", arcNumber, html)
             return html
 
-    def create_list(self, token, ped, action, arc_number, selected_status_id=''):
-        self.logger.debug("CREATE LIST: %s" % arc_number)
+    def create_list(self, token, ped, action, arcNumber, selectedStatusId, selectedTransactionType, selectedFormOfPayment,
+                    dateTypeRadioButtons, viewFromDate, viewToDate, selectedNumberOfResults, isNext=False, page=0,
+                    selectedDocumentType=""):
+        self.logger.debug("CREATE LIST: %s" % arcNumber)
         values = {
             'org.apache.struts.taglib.html.TOKEN': token,
-            'arcNumber': arc_number,
+            'arcNumber': arcNumber,
             'ped': ped,
-            'selectedStatusId': selected_status_id,
+            # 'selectedStatusId': "",
+            'selectedStatusId': selectedStatusId,
             'documentNumber': '',
             'docNumberEnd': '',
-            'selectedDocumentType': '',
-            'selectedTransactionType': 'SA',
-            'selectedFormOfPayment': 'CA',
+            'selectedDocumentType': selectedDocumentType,
+            # 'selectedTransactionType': 'SA',
+            'selectedTransactionType': selectedTransactionType,
+            # 'selectedFormOfPayment': 'CA',
+            'selectedFormOfPayment': selectedFormOfPayment,
             'selectedInternationalIndicator': '',
             'systemProvider': '',
-            'dateTypeRadioButtons': 'ped',
-            'viewFromDate': '02APR18',
-            'viewToDate': '08APR18',
+            # 'dateTypeRadioButtons': 'ped',
+            'dateTypeRadioButtons': dateTypeRadioButtons,
+            # 'viewFromDate': '02APR18',
+            'viewFromDate': viewFromDate,
+            # 'viewToDate': '08APR18',
+            'viewToDate': viewToDate,
             'commTypeRadioButtons': 'commEqualTo',
             'commissionAmount': '',
             'threeDigitCarrierCode': '',
-            'selectedNumberOfResults': '20',
+            # 'selectedNumberOfResults': '20',
+            'selectedNumberOfResults': selectedNumberOfResults,
             'list.x': '19',
             'list.y': '8',
             'printOption': '1',
             'printaction': '0'
         }
+
+        if isNext:
+            del values['list.x']
+            del values['list.y']
+            values['next.x'] = "17"
+            values['next.y'] = "11"
 
         url = "https://iar2.arccorp.com/IAR/listTransactions.do"
         data = urllib.urlencode(values)
@@ -215,7 +249,7 @@ class ArcModel:
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             'Accept-Language': 'zh-CN,zh;q=0.8,zh-TW;q=0.7,zh-HK;q=0.5,en-US;q=0.3,en;q=0.2',
             'Accept-Encoding': 'gzip, deflate, br',
-            'Referer': 'https://iar2.arccorp.com/IAR/listTransactions.do?ped=' + ped + '&action=' + action + '&arcNumber=' + arc_number + '',
+            'Referer': 'https://iar2.arccorp.com/IAR/listTransactions.do?ped=' + ped + '&action=' + action + '&arcNumber=' + arcNumber + '',
             'Content-Type': 'application/x-www-form-urlencoded',
             'Content-Length': len(data),
             'Connection': self._connection,
@@ -226,26 +260,30 @@ class ArcModel:
         res = self.__try_request(req)
         if res:
             html = res.read()
-            self.__save_page("create_list", arc_number, html)
+            page_flag = ""
+            if page > 0:
+                page_flag = "_P" + str(page)
+            self.__save_page("create_list", arcNumber + page_flag, html)
             return html
 
-    def get_csv(self, name, is_this_week, ped, action, arcNumber, token, from_date, to_date, selected_status_id='', transaction_type='', form_of_payment='', tick=''):
+    def get_csv(self, name, is_this_week, ped, action, arcNumber, token, viewFromDate, viewToDate, dateTypeRadioButtons='ped',
+                selectedStatusId='', selectedTransactionType='', selectedFormOfPayment='', tick=''):
         self.logger.debug("DOWNLOAD CSV: " + arcNumber)
         values = {
             'org.apache.struts.taglib.html.TOKEN': token,
             'arcNumber': arcNumber,
             'ped': ped,
-            'selectedStatusId': selected_status_id,
+            'selectedStatusId': selectedStatusId,
             'documentNumber': '',
             'docNumberEnd': '',
             'selectedDocumentType': '',
-            'selectedTransactionType': transaction_type,
-            'selectedFormOfPayment': form_of_payment,
+            'selectedTransactionType': selectedTransactionType,
+            'selectedFormOfPayment': selectedFormOfPayment,
             'selectedInternationalIndicator': '',
             'systemProvider': '',
-            'dateTypeRadioButtons': 'ped',
-            'viewFromDate': from_date,
-            'viewToDate': to_date,
+            'dateTypeRadioButtons': dateTypeRadioButtons,
+            'viewFromDate': viewFromDate,
+            'viewToDate': viewToDate,
             'commTypeRadioButtons': 'commEqualTo',
             'commissionAmount': '',
             'threeDigitCarrierCode': '',
@@ -256,7 +294,7 @@ class ArcModel:
             'action': ''
         }
 
-        if transaction_type:
+        if selectedTransactionType:
             del values['action']
 
             values['download.x'] = "28"
@@ -282,7 +320,7 @@ class ArcModel:
             'User-Agent': self._user_agent
         }
 
-        if transaction_type:
+        if selectedTransactionType:
             headers['Referer'] = "https://iar2.arccorp.com/IAR/listTransactions.do"
         req = urllib2.Request(url, data, headers)
         res = self.__try_request(req)
@@ -290,13 +328,13 @@ class ArcModel:
             csv = res.read()
             if csv.find("<link") == -1:
                 self.__save_csv(name, is_this_week, arcNumber + ("" if not tick else "_" + tick) + '.csv', csv)
-                if transaction_type:
+                if selectedTransactionType:
                     # self.logger.debug("ARC: %s, CSV: %s" % (arcNumber, csv))
                     return csv
         else:
             self.logger.warning('Download csv error :' + arcNumber)
 
-    def search(self, ped, action, arcNumber, token, from_date, to_date, documentNumber):
+    def search(self, ped, action, arcNumber, token, from_date, to_date, documentNumber, dateTypeRadioButtons='ped'):
         self.logger.debug("SEARCH TICKET: %s" % documentNumber)
         values = {
             'org.apache.struts.taglib.html.TOKEN': token,
@@ -310,7 +348,7 @@ class ArcModel:
             'selectedFormOfPayment': '',
             'selectedInternationalIndicator': '',
             'systemProvider': '',
-            'dateTypeRadioButtons': 'ped',
+            'dateTypeRadioButtons': dateTypeRadioButtons,
             'viewFromDate': from_date,
             'viewToDate': to_date,
             'commTypeRadioButtons': 'commEqualTo',
@@ -347,28 +385,36 @@ class ArcModel:
             self.__save_page("search", "search", html)
             return html
 
-    def add_old_document(self, token, oldDocumentAirlineCodeFI, oldDocumentNumberFI, seqNum, documentNumber):
+    def add_old_document(self, token, oldDocumentAirlineCodeFI, oldDocumentNumberFI, seqNum, documentNumber, amountCommission,
+                         waiverCode, certificateItems, maskedFC):
         self.logger.debug("ADD OLD DOCUMENT, AIR: %s, DOC NUM: %s, SEQ: %s, TKT: %s." % (oldDocumentAirlineCodeFI,
                           oldDocumentNumberFI, seqNum, documentNumber))
+
+        if waiverCode is None:
+            waiverCode = ""
+
+        if maskedFC is None:
+            maskedFC = ""
+
         values = {
             'org.apache.struts.taglib.html.TOKEN': token,
-            'amountCommission': "",
+            'amountCommission': amountCommission,
             'maskedFormOfPayment': "CASH",
             'paymentBean.approvalCode': '',
             'paymentBean.extendedPay': "N",
             'miscSupportTypeId': "",
-            'waiverCode': "",
-            'certificateItem[0].value': "",
-            'certificateItem[1].value': "",
-            'certificateItem[2].value': "",
-            'certificateItem[3].value': "",
+            'waiverCode': waiverCode,
+            'certificateItem[0].value': certificateItems[0],
+            'certificateItem[1].value': certificateItems[1],
+            'certificateItem[2].value': certificateItems[2],
+            'certificateItem[3].value': certificateItems[3],
             'error22010': 'false',
             'oldDocumentAirlineCodeFI': oldDocumentAirlineCodeFI,
             'oldDocumentNumberFI': oldDocumentNumberFI,
             'addOldDocumentButton.x': "57",
             'addOldDocumentButton.y': "9",
             'selfSaleIntlTypeId': "",
-            'maskedFC': ""
+            'maskedFC': maskedFC
         }
 
         url = "https://iar2.arccorp.com/IAR/financialDetails.do"
@@ -513,17 +559,23 @@ class ArcModel:
             self.__save_page("exchange_summary", documentNumber, html)
             return html
 
-    def remove_old_document(self, token, commission, maskedFC, documentNumber):
+    def remove_old_document(self, token, commission, documentNumber, waiverCode, certificateItems, maskedFC):
         self.logger.debug("REMOVE OLD DOCUMENT.")
+        if waiverCode is None:
+            waiverCode = ""
+
+        if maskedFC is None:
+            maskedFC = ""
+
         values = {
             'org.apache.struts.taglib.html.TOKEN': token,
             'amountCommission': commission,
             'miscSupportTypeId': "",
-            'waiverCode': "",
-            'certificateItem[0].value': "",
-            'certificateItem[1].value': "",
-            'certificateItem[2].value': "",
-            'certificateItem[3].value': "",
+            'waiverCode': waiverCode,
+            'certificateItem[0].value': certificateItems[0],
+            'certificateItem[1].value': certificateItems[1],
+            'certificateItem[2].value': certificateItems[2],
+            'certificateItem[3].value': certificateItems[3],
             'error22010': "false",
             'oldDocumentAirlineCodeFI': "",
             'oldDocumentNumberFI': "",
@@ -534,7 +586,7 @@ class ArcModel:
             'maskedFC': maskedFC,
         }
 
-        url = "https://iar2.arccorp.com/IAR/exchangeSummary.do"
+        url = "https://iar2.arccorp.com/IAR/financialDetails.do"
         data = urllib.urlencode(values)
 
         headers = {
@@ -765,6 +817,61 @@ class ArcModel:
             self.__save_page("FinancialDetails", "FinancialDetails", html)
             return html
 
+    def financial_details(self, token, commission, waiverCode, certificateItems, maskedFC, is_et_button):
+        self.logger.debug("GO TO FINANCIAL DETAILS")
+        if waiverCode is None:
+            waiverCode = ""
+
+        if maskedFC is None:
+            maskedFC = ""
+
+        url = "https://iar2.arccorp.com/IAR/financialDetails.do"
+        values = {
+            'org.apache.struts.taglib.html.TOKEN': token,
+            'navButton2.x': "63",
+            'navButton2.y': "18",
+            'amountCommission': commission,
+            'miscSupportTypeId': "",
+            'waiverCode': waiverCode,
+            'certificateItem[0].value': certificateItems[0],
+            'certificateItem[1].value': certificateItems[1],
+            'certificateItem[2].value': certificateItems[2],
+            'certificateItem[3].value': certificateItems[3],
+            'error22010': "true",
+            'oldDocumentAirlineCodeFI': "",
+            'oldDocumentNumberFI': "",
+            'maskedFC': maskedFC,
+            'ETButton.x': "47",
+            'ETButton.y': "7"
+        }
+
+        if is_et_button:
+            del values['navButton2.x']
+            del values['navButton2.y']
+            values['ETButton.x'] = "27"
+            values['ETButton.y'] = "7"
+
+        data = urllib.urlencode(values)
+        headers = {
+            'Accept': self._accpet,
+            'Accept-Encoding': "gzip, deflate, br",
+            'Accept-Language': self._accept_language,
+            'Connection': self._connection,
+            'Content-Length': len(data),
+            'Content-Type': self._content_type,
+            'Host': "iar2.arccorp.com",
+            'Referer': "https://iar2.arccorp.com/IAR/financialDetails.do",
+            'Upgrade-Insecure-Requests': self._upgrade_insecure_requests,
+            'User-Agent': self._user_agent
+        }
+
+        req = urllib2.Request(url, data, headers)
+        res = self.__try_request(req)
+        if res:
+            html = res.read()
+            self.__save_page("FinancialDetails", "FinancialDetails", html)
+            return html
+
     def itineraryEndorsements(self, token, qc_tour_code, backOfficeRemarks, ticketDesignators):
         self.logger.debug("GO TO ITINERARY ENDORSEMENTS")
         url = "https://iar2.arccorp.com/IAR/itineraryEndorsements.do"
@@ -883,11 +990,13 @@ class ArcModel:
         self.__try_request(req)
         self.logger.debug("Logout end")
 
-    def store(self, data):
+    def store(self, data, arc_number=""):
         path = 'file'
         if not os.path.exists(path):
             os.makedirs(path)
         today = datetime.datetime.now().strftime('%Y%m%d')
+        if arc_number:
+            today = today + "_" + arc_number
         file_name = today + '.json'
         with open(path + '\\' + file_name, 'w') as json_file:
             json_file.write(json.dumps(data))
@@ -900,6 +1009,14 @@ class ArcModel:
         with open(file_name) as json_file:
             data = json.load(json_file)
             return data
+
+    def read_file(self, path, file_name):
+        file_full_path = path + '/' + file_name
+        if not os.path.isfile(file_full_path):
+            return None
+
+        with open(file_full_path, 'r') as f:
+            return f.read()
 
     def convertStatus(self, data, is_remove_error=False):
         status = 'No'
@@ -976,10 +1093,43 @@ class ArcModel:
 
 class Regex:
     def __init__(self):
-        pass
+        self._pattern_token = re.compile(r'input type="hidden" name="org\.apache\.struts\.taglib\.html\.TOKEN" value="([\da-z]{32})"')
+        self._pattern_search = re.compile(r'<a href="/IAR/modifyTran\.do\?seqNum=(\d{10})&amp;documentNumber=(\d{10})">')
+        self._pattern_masked = re.compile(
+            r'<textarea name="maskedFC" cols="60" rows="5" readonly="readonly" class="disabled">(.+?)</textarea>')
+        self._pattern_commission = re.compile(
+            r'<input type="text" name="amountCommission" maxlength="10" size="15" value="(\d+\.\d{2}|\s?)" (disabled="disabled" )?class="contenttextright">')
+        self._pattern_waiver_code = re.compile(
+            r'<input name="waiverCode" maxlength="15" size="20" value="(.+?)" class="contenttext" type="text">')
+        self._pattern_certificates = re.compile(
+            r'<input type="text" name="certificateItem\[(\d{1})\]\.value" maxlength="14" size="19" value="(.+?)" class="contenttext">')
+        self._pattern_tour_code = re.compile(
+            r'<input type="text" name="tourCode" maxlength="15" size="22" value="(.*?)" (disabled="disabled" )?class="contenttext">')
+        self._pattern_backOfficeRemarks = re.compile(
+            r'<input type="text" name="backOfficeRemarks" maxlength="49" size="70" value="(.*?)" (disabled="disabled" )?class="contenttext">')
+        self._pattern_ticketDesignator = re.compile(
+            r'<input type="text" name="coupon\[(\d{1})\]\.ticketDesignator" maxlength="14" size="20" value="(.*?)" (disabled="disabled" )?class="contenttext">')
+        # self._pattern_tran_type = re.compile(r'''                      <td width="30%" height="24" class="contentboldtext" align="left">&nbsp;Tran Type:</td>
+        #               <td width="35%" class="contenttext">(.*?)</td>
+        #               <td width="20%" class="contentboldtext"  align="left">Status:&nbsp;</td>
+        #               <td width="14%">(.*?)</td>''')
+        self._pattern_tran_type = re.compile(r'''                      <td width="30%" height="24" class="contentboldtext" align="left">&nbsp;Tran Type:</td>
+                      <td width="35%" class="contenttext">(.*?)</td>''')
+        self._pattern_modify_trans = re.compile(r'''        <td width="7%" align="center">(\d{3})</td>
+        <td width="11%" align="left">
+        
+        
+            <a href="/IAR/modifyTran\.do\?seqNum=(\d{10})&amp;documentNumber=(\d{10})">\d{10}</a>
+            
+                
+        
+		</td>
+        <td width="4%" align="right" >(.*?) 
+        </td>''')
+        self._pattern_total = re.compile(r'<input type="text" name="amountTotal" maxlength="12" size="15" value="(.*?)"')
+        # pass
 
-    def __public(self, pattern_text, html, is_findall=False):
-        pattern = re.compile(pattern_text)
+    def __public(self, pattern, html, is_findall=False):
         if is_findall:
             return pattern.findall(html)
         else:
@@ -987,9 +1137,19 @@ class Regex:
             if m:
                 return m.groups()
 
+    # def __public(self, pattern_text, html, is_findall=False):
+    #     pattern = re.compile(pattern_text)
+    #     if is_findall:
+    #         return pattern.findall(html)
+    #     else:
+    #         m = pattern.search(html)
+    #         if m:
+    #             return m.groups()
+
     def __token(self, html):
-        pattern = r'input type="hidden" name="org\.apache\.struts\.taglib\.html\.TOKEN" value="([\da-z]{32})"'
-        result = self.__public(pattern, html)
+        # pattern = r'input type="hidden" name="org\.apache\.struts\.taglib\.html\.TOKEN" value="([\da-z]{32})"'
+        # result = self.__public(pattern, html)
+        result = self.__public(self._pattern_token, html)
         if result:
             return result[0]
 
@@ -1006,7 +1166,7 @@ class Regex:
         # from_date=(date_ped+datetime.timedelta(days = -6)).strftime('%d%b%y').upper()
         ped = date_ped.strftime('%d%b%y').upper()
         # print ped
-        pattern = r'<a href="/IAR/listTransactions\.do;.+?ped=' + ped + '&amp;action=(\d)&amp;arcNumber=(\d{8})">'
+        pattern = re.compile(r'<a href="/IAR/listTransactions\.do;.+?ped=' + ped + '&amp;action=(\d)&amp;arcNumber=(\d{8})">')
         result = self.__public(pattern, html)
         if result:
             action = result[0]
@@ -1041,8 +1201,9 @@ class Regex:
         return token, from_date, to_date
 
     def search(self, html):
-        pattern = re.compile(r'<a href="/IAR/modifyTran\.do\?seqNum=(\d{10})&amp;documentNumber=(\d{10})">')
-        result = self.__public(pattern, html)
+        # pattern = re.compile(r'<a href="/IAR/modifyTran\.do\?seqNum=(\d{10})&amp;documentNumber=(\d{10})">')
+        # pattern = r'<a href="/IAR/modifyTran\.do\?seqNum=(\d{10})&amp;documentNumber=(\d{10})">'
+        result = self.__public(self._pattern_search, html)
         if result:
             return result
         else:
@@ -1052,27 +1213,27 @@ class Regex:
         token = maskedFC = waiverCode = commission = None
         token = self.__token(html)
 
-        pattern_masked = re.compile(
-            r'<textarea name="maskedFC" cols="60" rows="5" readonly="readonly" class="disabled">(.+?)</textarea>')
-        masked_result = self.__public(pattern_masked, html)
+        # pattern_masked = re.compile(
+        #     r'<textarea name="maskedFC" cols="60" rows="5" readonly="readonly" class="disabled">(.+?)</textarea>')
+        masked_result = self.__public(self._pattern_masked, html)
         if masked_result:
             maskedFC = masked_result[0]
 
-        pattern_commission = re.compile(
-            r'<input type="text" name="amountCommission" maxlength="10" size="15" value="(\d+\.\d{2}|\s?)" (disabled="disabled" )?class="contenttextright">')
-        commission_result = self.__public(pattern_commission, html)
+        # pattern_commission = re.compile(
+        #     r'<input type="text" name="amountCommission" maxlength="10" size="15" value="(\d+\.\d{2}|\s?)" (disabled="disabled" )?class="contenttextright">')
+        commission_result = self.__public(self._pattern_commission, html)
         if commission_result:
             commission = commission_result[0]
 
-        pattern_waiverCode = re.compile(
-            r'<input type="text" name="waiverCode" maxlength="15" size="20" value="(.+?)" class="contenttext">')
-        waiverCode_result = self.__public(pattern_waiverCode, html)
+        # pattern_waiverCode = re.compile(
+        #     r'<input name="waiverCode" maxlength="15" size="20" value="(.+?)" class="contenttext" type="text">')
+        waiverCode_result = self.__public(self._pattern_waiver_code, html)
         if waiverCode_result:
             waiverCode = waiverCode_result[0]
 
-        pattern_certificates = re.compile(
-            r'<input type="text" name="certificateItem\[(\d{1})\]\.value" maxlength="14" size="19" value="(.+?)" class="contenttext">')
-        certificates_result = self.__public(pattern_certificates, html, True)
+        # pattern_certificates = re.compile(
+        #     r'<input type="text" name="certificateItem\[(\d{1})\]\.value" maxlength="14" size="19" value="(.+?)" class="contenttext">')
+        certificates_result = self.__public(self._pattern_certificates, html, True)
 
         return token, maskedFC, commission, waiverCode, certificates_result
 
@@ -1081,21 +1242,21 @@ class Regex:
 
         token = self.__token(html)
 
-        pattern_tour_code = re.compile(
-            r'<input type="text" name="tourCode" maxlength="15" size="22" value="(.*?)" (disabled="disabled" )?class="contenttext">')
-        tour_code_result = self.__public(pattern_tour_code, html)
+        # pattern_tour_code = re.compile(
+        #     r'<input type="text" name="tourCode" maxlength="15" size="22" value="(.*?)" (disabled="disabled" )?class="contenttext">')
+        tour_code_result = self.__public(self._pattern_tour_code, html)
         if tour_code_result:
             tour_code = tour_code_result[0]
 
-        pattern_backOfficeRemarks = re.compile(
-            r'<input type="text" name="backOfficeRemarks" maxlength="49" size="70" value="(.*?)" (disabled="disabled" )?class="contenttext">')
-        backOfficeRemarks_result = self.__public(pattern_backOfficeRemarks, html)
+        # pattern_backOfficeRemarks = re.compile(
+        #     r'<input type="text" name="backOfficeRemarks" maxlength="49" size="70" value="(.*?)" (disabled="disabled" )?class="contenttext">')
+        backOfficeRemarks_result = self.__public(self._pattern_backOfficeRemarks, html)
         if backOfficeRemarks_result:
             backOfficeRemarks = backOfficeRemarks_result[0]
 
-        pattern_ticketDesignator = re.compile(
-            r'<input type="text" name="coupon\[(\d{1})\]\.ticketDesignator" maxlength="14" size="20" value="(.*?)" (disabled="disabled" )?class="contenttext">')
-        ticketDesignator_result = self.__public(pattern_ticketDesignator, html, True)
+        # pattern_ticketDesignator = re.compile(
+        #     r'<input type="text" name="coupon\[(\d{1})\]\.ticketDesignator" maxlength="14" size="20" value="(.*?)" (disabled="disabled" )?class="contenttext">')
+        ticketDesignator_result = self.__public(self._pattern_ticketDesignator, html, True)
         return token, tour_code, backOfficeRemarks, ticketDesignator_result
 
     def itineraryEndorsements(self, html):
@@ -1131,7 +1292,18 @@ class Regex:
         </tr>''')
         return self.__public(pattern, html, True)
 
-# 1 = pass, 2 = void, 0 = default
+    def tran_type(self, html):
+        result = self.__public(self._pattern_tran_type, html)
+        if result:
+            return result[0]
+
+    def modify_trans(self, html):
+        return self.__public(self._pattern_modify_trans, html, True)
+
+    def get_total(self, html):
+        return self.__public(self._pattern_total, html)
+
+    # 1 = pass, 2 = void, 0 = default
     def check_status(self, html):
         status = 0
         if html.find('Document is being displayed as view only') >= 0:

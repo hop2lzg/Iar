@@ -59,10 +59,19 @@ def execute(post, action, token, from_date, to_date):
     if not token:
         return
 
+    is_exchange = False
+    tran_type = arc_regex.tran_type(modify_html)
+    if tran_type and tran_type.find("EX") >= 0:
+        is_exchange = True
+
+    error_code = "QC-AUTO"
+    if is_exchange:
+        error_code = ""
+
     post['ArcComm'] = arc_commission
     financialDetails_html = arc_model.financialDetails(token, is_check_payment, commission, waiverCode, maskedFC,
                                                        seqNum, documentNumber, tour_code, qc_tour_code, certificates,
-                                                       "QC-AUTO", agent_codes, is_et_button, is_check_update=False)
+                                                       error_code, agent_codes, is_et_button, is_check_update=False)
 
     if not financialDetails_html:
         return
@@ -135,10 +144,20 @@ def check(post, action, token, from_date, to_date):
     token, maskedFC, arc_commission, waiverCode, certificates = arc_regex.modifyTran(modify_html)
     if not token:
         return
+
+    is_exchange = False
+    tran_type = arc_regex.tran_type(modify_html)
+    if tran_type and tran_type.find("EX") >= 0:
+        is_exchange = True
+
+    error_code = "QC-AUTO"
+    if is_exchange:
+        error_code = ""
+
     post['ArcCommUpdated'] = arc_commission
     financialDetails_html = arc_model.financialDetails(token, is_check_payment, commission, waiverCode, maskedFC,
                                                        seqNum, documentNumber, tour_code, qc_tour_code, certificates,
-                                                       "QC-AUTO", agent_codes, is_check_update=True)
+                                                       error_code, agent_codes, is_check_update=True)
 
     if not financialDetails_html:
         return

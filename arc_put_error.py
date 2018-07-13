@@ -101,6 +101,7 @@ left join IarUpdate iar
 on t.Id=iar.TicketId
 where Status not like '[NV]%'
 and IssueDate=@t
+and ISNULL(McoNumber,'')=''
 and (iar.Id is null or iar.IsUpdated=0)
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
 and ((QCStatus=2
@@ -125,7 +126,7 @@ and TicketNumber not like '95786%'
 and TicketNumber not like '890%')
 or 
 (TicketNumber like '1577%' or TicketNumber like '15786%'
-or ((TicketNumber like '7817%' or TicketNumber like '78186%') and ISNULL(McoNumber,'')='')))
+or (TicketNumber like '7817%' or TicketNumber like '78186%')))
 union
 select t.Id,t.[SID],t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,PaymentType,t.Comm,'DUP' ErrorCode,iar.Id iarId from Ticket t
 right join TicketDuplicate td
@@ -133,6 +134,7 @@ on t.id=td.id
 left join IarUpdate iar
 on t.Id=iar.TicketId
 where td.insertDateTime>=DATEADD(day,-7,getdate())
+and ISNULL(McoNumber,'')=''
 and td.isARCUpdated=0
 and (iar.IsUpdated is null or iar.IsUpdated=0)
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
@@ -149,6 +151,7 @@ where qc.AGDate>=DATEADD(day,-3,getdate())
 and qc.AGStatus=1
 and (iar.Id is null or iar.IsPutError=0)
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
+and ISNULL(McoNumber,'')=''
 union
 select aa.Id,aa.[SID],aa.TicketNumber,aa.Ticket,aa.IssueDate,aa.ArcNumber,aa.PaymentType,
 aa.Comm,aa.ErrorCode,aa.iarId from (
@@ -171,6 +174,7 @@ and qc.OPStatus=14
 and iar.isPutError=0
 and iar.AuditorStatus=0
 and t.Selling>0
+and ISNULL(McoNumber,'')=''
 ) aa
 where aa.Profit<0
 and -aa.Profit > Base*0.05
@@ -187,6 +191,23 @@ and t.GDS='1A'
 and ISNULL(t.McoNumber,'')<>''
 and (iar.Id is null or iar.IsPutError=0)
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
+and ISNULL(McoNumber,'')=''
+union
+select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-RE' ErrorCode,iar.Id iarId from Ticket t
+left join IarUpdate iar
+on t.Id=iar.TicketId
+where t.IssueDate=@t
+and ((t.ArcNumber='45668571' and t.AgentSign in ('MM','MG','ZG','YU','S7'))
+	or (t.ArcNumber='45666574' and t.AgentSign in ('PF','NQ','LL','XL')))
+and TicketNumber not like '180%'
+and TicketNumber not like '784%'
+and TicketNumber not like '230%'
+and TicketNumber not like '098%'
+and TicketNumber not like '890%'
+and (TicketNumber like '[0-9][0-9][0-9]7%' or TicketNumber like '[0-9][0-9][0-9]86%')
+and ISNULL(t.McoNumber,'')=''
+and (iar.Id is null or iar.IsPutError=0)
+and (iar.AuditorStatus is null or iar.AuditorStatus=0)
 order by ArcNumber,Ticket
 ''')
 
@@ -197,9 +218,14 @@ if not list_data:
     if len(rows) == 0:
         sys.exit(0)
     list_data = []
+    list_id = []
     for row in rows:
         v = {}
         v['Id'] = row.Id
+        if v['Id'] not in list_id:
+            list_id.append(v['Id'])
+        else:
+            continue
         v['TicketNumber'] = row.TicketNumber
         v['Ticket'] = row.Ticket
         v['IssueDate'] = str(row.IssueDate)

@@ -1,7 +1,6 @@
 import time, datetime
 import ConfigParser
 import arc
-# import thread
 import threading
 
 
