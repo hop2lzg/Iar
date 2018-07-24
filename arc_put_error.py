@@ -208,6 +208,25 @@ and (TicketNumber like '[0-9][0-9][0-9]7%' or TicketNumber like '[0-9][0-9][0-9]
 and ISNULL(t.McoNumber,'')=''
 and (iar.Id is null or iar.IsPutError=0)
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
+union
+select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-ERROR' ErrorCode,iar.Id iarId from Ticket t
+left join IarUpdate iar
+on t.Id=iar.TicketId
+where t.IssueDate=@t
+and PaymentType='C'
+and Status not like '[NV]%'
+and 
+(TicketNumber like '1[02]55%'
+or 
+((TicketNumber like '1087%' or TicketNumber like '10886%'
+or TicketNumber like '0757%' or TicketNumber like '07586%')
+and (FareType='BULK' or FareType='SR')
+)
+or 
+(TicketNumber like '1085%' or TicketNumber like '0755%')
+)
+and (iar.Id is null or iar.IsPutError=0)
+and (iar.AuditorStatus is null or iar.AuditorStatus=0)
 order by ArcNumber,Ticket
 ''')
 
@@ -236,8 +255,6 @@ if not list_data:
         v['Commission'] = None
         if row.Comm is not None:
             v['Commission'] = str(row.Comm)
-        # if row.PaymentType != 'C':
-        #     v['Status'] = 3
 
         list_data.append(v)
 
