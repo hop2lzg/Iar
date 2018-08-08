@@ -93,6 +93,13 @@ sql_database = conf.get("sql", "database")
 sql_user = conf.get("sql", "user")
 sql_pwd = conf.get("sql", "pwd")
 
+# #------------------------------------------sql 44-------------------------------------
+section_sql_44 = "sql44"
+sql_server_44 = conf.get(section_sql_44, "server")
+sql_database_44 = conf.get(section_sql_44, "database")
+sql_user_44 = conf.get(section_sql_44, "user")
+sql_pwd_44 = conf.get(section_sql_44, "pwd")
+
 ms = arc.MSSQL(server=sql_server, db=sql_database, user=sql_user, pwd=sql_pwd)
 sql = ('''declare @t date
 set @t=DATEADD(DAY,-1,GETDATE())
@@ -231,13 +238,13 @@ order by ArcNumber,Ticket
 ''')
 
 list_data = arc_model.load()
+list_id = []
 
 if not list_data:
     rows = ms.ExecQuery(sql)
     if len(rows) == 0:
         sys.exit(0)
     list_data = []
-    list_id = []
     for row in rows:
         v = {}
         v['Id'] = row.Id
@@ -257,6 +264,62 @@ if not list_data:
             v['Commission'] = str(row.Comm)
 
         list_data.append(v)
+
+ms_44 = arc.MSSQL(server=sql_server_44, db=sql_database_44, user=sql_user_44, pwd=sql_pwd_44)
+sql_44 = "select distinct AccountCode from dbo.T_Users where Highrisk=1"
+
+high_risk_account_code_rows = ms_44.ExecQuery(sql_44)
+if len(high_risk_account_code_rows) > 0:
+    high_risk_account_codes = []
+    for high_risk_account_code_row in high_risk_account_code_rows:
+        high_risk_account_code = high_risk_account_code_row.AccountCode
+        if not high_risk_account_code:
+            continue
+
+        if high_risk_account_code not in high_risk_account_codes:
+            high_risk_account_codes.append(high_risk_account_code)
+
+    if high_risk_account_codes:
+        acct_where = ""
+        if len(high_risk_account_codes) == 1:
+            acct_where = "and t.AccountCode='" + high_risk_account_codes[0] + "' "
+        else:
+            acct_where = "and t.AccountCode in ('" + (",".join(high_risk_account_codes).replace(",", "','")) + "') "
+
+        sql_high_risk = '''
+        declare @date date
+set @date=DATEADD(DAY,-1,GETDATE())
+select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-HRISK' ErrorCode,iar.Id iarId from Ticket t
+left join IarUpdate iar
+on t.Id=iar.TicketId
+where t.IssueDate=@date
+and t.Status not like '[NV]%'
+and ISNULL(t.McoNumber,'')=''
+''' + acct_where + '''
+and (iar.Id is null or iar.IsPutError=0)
+and (iar.AuditorStatus is null or iar.AuditorStatus=0)
+'''
+        high_risk_rows = ms.ExecQuery(sql_high_risk)
+        if len(high_risk_rows) > 0:
+            for high_risk_row in high_risk_rows:
+                v = {}
+                v['Id'] = high_risk_row.Id
+                if v['Id'] not in list_id:
+                    list_id.append(v['Id'])
+                else:
+                    continue
+                v['TicketNumber'] = high_risk_row.TicketNumber
+                v['Ticket'] = high_risk_row.Ticket
+                v['IssueDate'] = str(high_risk_row.IssueDate)
+                v['ArcNumber'] = high_risk_row.ArcNumber
+                v['Status'] = 0
+                v['ErrorCode'] = high_risk_row.ErrorCode
+                v['IarId'] = high_risk_row.iarId
+                v['Commission'] = None
+                if high_risk_row.Comm is not None:
+                    v['Commission'] = str(high_risk_row.Comm)
+
+                list_data.append(v)
 
 
 def run(user_name, datas):
