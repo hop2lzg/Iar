@@ -62,7 +62,8 @@ def execute(data):
         return
 
     logger.debug("Regex commission: %s" % commission)
-    if not token or not maskedFC:
+    if not token:
+        logger.warn("MODIFY TRAN REGEX ERROR.")
         return
 
     financialDetails_html = arc_model.financialDetails(token, False, commission, waiverCode, maskedFC,

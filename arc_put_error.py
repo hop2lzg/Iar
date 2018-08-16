@@ -321,6 +321,66 @@ and (iar.AuditorStatus is null or iar.AuditorStatus=0)
 
                 list_data.append(v)
 
+# print list_data
+sql_44_low_fare = "select distinct AccountCode from dbo.T_Users where LowFare=1"
+low_fare_account_code_rows = ms_44.ExecQuery(sql_44_low_fare)
+# print low_fare_account_code_rows
+if len(low_fare_account_code_rows) > 0:
+    low_fare_account_codes = []
+    for low_fare_account_code_row in low_fare_account_code_rows:
+        low_fare_account_code = low_fare_account_code_row.AccountCode
+        if not low_fare_account_code:
+            continue
+
+        if low_fare_account_code not in low_fare_account_codes:
+            low_fare_account_codes.append(low_fare_account_code)
+
+    if low_fare_account_codes:
+        low_fare_acct_where = ""
+        if len(low_fare_account_codes) == 1:
+            low_fare_acct_where = "and t.AccountCode='" + low_fare_account_codes[0] + "' "
+        else:
+            low_fare_acct_where = "and t.AccountCode in ('" + (",".join(low_fare_account_codes).replace(",", "','")) + "') "
+
+        sql_low_fare = '''
+        declare @date date
+set @date=DATEADD(DAY,-1,GETDATE())
+select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-LF' ErrorCode,iar.Id iarId from Ticket t
+left join IarUpdate iar
+on t.Id=iar.TicketId
+INNER JOIN TicketLowestFare lf
+on t.Id=lf.TicketId
+where t.IssueDate=@date
+and t.Status not like '[NV]%'
+and ISNULL(t.McoNumber,'')=''
+''' + low_fare_acct_where + '''
+and ISNULL(lf.Pnr,'')<>''
+and (iar.Id is null or iar.IsPutError=0)
+and (iar.AuditorStatus is null or iar.AuditorStatus=0)
+'''
+        low_fare_rows = ms.ExecQuery(sql_low_fare)
+        # print low_fare_rows
+        if len(low_fare_rows) > 0:
+            for low_fare_row in low_fare_rows:
+                v = {}
+                v['Id'] = low_fare_row.Id
+                if v['Id'] not in list_id:
+                    list_id.append(v['Id'])
+                else:
+                    continue
+                v['TicketNumber'] = low_fare_row.TicketNumber
+                v['Ticket'] = low_fare_row.Ticket
+                v['IssueDate'] = str(low_fare_row.IssueDate)
+                v['ArcNumber'] = low_fare_row.ArcNumber
+                v['Status'] = 0
+                v['ErrorCode'] = low_fare_row.ErrorCode
+                v['IarId'] = low_fare_row.iarId
+                v['Commission'] = None
+                if low_fare_row.Comm is not None:
+                    v['Commission'] = str(low_fare_row.Comm)
+
+                list_data.append(v)
+
 
 def run(user_name, datas):
     # ----------------------login
@@ -433,15 +493,15 @@ except Exception as e:
 finally:
     arc_model.store(list_data)
 
-try:
-    update(list_data)
-except Exception as e:
-    logger.critical(e)
-
-try:
-    insert(list_data)
-except Exception as e:
-    logger.critical(e)
+# try:
+#     update(list_data)
+# except Exception as e:
+#     logger.critical(e)
+#
+# try:
+#     insert(list_data)
+# except Exception as e:
+#     logger.critical(e)
 
 # ##---------------------------send email
 mail_smtp_server = conf.get("email", "smtp_server")
