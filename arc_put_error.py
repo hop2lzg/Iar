@@ -493,15 +493,15 @@ except Exception as e:
 finally:
     arc_model.store(list_data)
 
-# try:
-#     update(list_data)
-# except Exception as e:
-#     logger.critical(e)
-#
-# try:
-#     insert(list_data)
-# except Exception as e:
-#     logger.critical(e)
+try:
+    update(list_data)
+except Exception as e:
+    logger.critical(e)
+
+try:
+    insert(list_data)
+except Exception as e:
+    logger.critical(e)
 
 # ##---------------------------send email
 mail_smtp_server = conf.get("email", "smtp_server")

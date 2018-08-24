@@ -84,19 +84,10 @@ def execute(data):
 
 def remove(today, weekday, ped, action, arc_number):
     list_entry_date = []
-    if weekday == 5:
+    if weekday == 4:
         list_entry_date.append((today + datetime.timedelta(days=-4)).strftime('%d%b%y').upper())
         list_entry_date.append((today + datetime.timedelta(days=-3)).strftime('%d%b%y').upper())
         list_entry_date.append((today + datetime.timedelta(days=-2)).strftime('%d%b%y').upper())
-
-    # if weekday > 2:
-    #     list_entry_date.append((today + datetime.timedelta(days=-3)).strftime('%d%b%y').upper())
-    # list_entry_date.append((today+datetime.timedelta(days = -1)).strftime('%d%b%y').upper())
-    # if weekday==3 or weekday==4:
-    # 	list_entry_date.append((today+datetime.timedelta(days = -3)).strftime('%d%b%y').upper())
-    # elif weekday == 5:
-    # 	list_entry_date.append((today+datetime.timedelta(days = -3)).strftime('%d%b%y').upper())
-    # 	list_entry_date.append((today+datetime.timedelta(days = -2)).strftime('%d%b%y').upper())
 
     entry_date = '\d{2}[A-Z]{3}\d{2}'
     if list_entry_date:
@@ -164,7 +155,7 @@ try:
     date_ped = date_time + datetime.timedelta(days=(6 - date_time.weekday()))
     if date_week < 2:
         date_ped = date_ped + datetime.timedelta(days=-7)
-    # from_date=(date_ped+datetime.timedelta(days = -6)).strftime('%d%b%y').upper()
+
     ped = date_ped.strftime('%d%b%y').upper()
     action = "7"
     section = "arc"

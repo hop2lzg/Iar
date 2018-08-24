@@ -104,11 +104,14 @@ def remove(today, weekday, ped, action, arc_number):
 
     listTransactions_html = arc_model.listTransactions(ped, action, arc_number)
     if not listTransactions_html:
-        logger.error('go to listTransactions_html error')
+        logger.error('GO TO LISTTRANSACTIONS HTML ERROR')
         return
+    logger.info("###>>>")
+    logger.info(listTransactions_html)
+    logger.info("###<<<")
     token, from_date, to_date = arc_regex.listTransactions(listTransactions_html)
     if not token:
-        logger.error('regex listTransactions token error')
+        logger.error('REGEX LISTTRANSACTIONS TOKEN ERROR')
         return
 
     searchs = []
