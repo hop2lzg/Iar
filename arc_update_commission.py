@@ -31,12 +31,15 @@ def execute(post, action, token, from_date, to_date):
     date_time = datetime.datetime.strptime(date, '%Y-%m-%d')
     ped = (date_time + datetime.timedelta(days=(6 - date_time.weekday()))).strftime('%d%b%y').upper()
     logger.info("UPDATING PED: " + ped + " arc: " + arcNumber + " tkt: " + documentNumber)
-    search_html = arc_model.search(ped, action, arcNumber, token, from_date, to_date, documentNumber)
+    # search_html = arc_model.search(ped, action, arcNumber, token, from_date, to_date, documentNumber)
+    search_html = arc_model.create_list(token=token, ped=ped, action=action, arcNumber=arcNumber,
+                                        viewFromDate=from_date, viewToDate=to_date, documentNumber=documentNumber)
     if not search_html:
         return
 
     seqNum, documentNumber = arc_regex.search(search_html)
     if not seqNum:
+        logger.warn("REGEX SEARCH ERROR!")
         return
 
     modify_html = arc_model.modifyTran(seqNum, documentNumber)
@@ -52,12 +55,14 @@ def execute(post, action, token, from_date, to_date):
         return
 
     token, maskedFC, arc_commission, waiverCode, certificates = arc_regex.modifyTran(modify_html)
+    if not token:
+        logger.warn("REGEX MODIFY TRAN ERROR!")
+        return
+
     if arc_commission is None:
         logger.debug("ARC COMM IS NONE, TKT.# %s, HTML: %s" % (documentNumber, modify_html))
 
     logger.debug("regex commission: %s" % arc_commission)
-    if not token:
-        return
 
     is_exchange = False
     tran_type = arc_regex.tran_type(modify_html)
@@ -124,7 +129,9 @@ def check(post, action, token, from_date, to_date):
 
     logger.info("CHECK PED: " + ped + " arc: " + arcNumber + " tkt: " + documentNumber)
 
-    search_html = arc_model.search(ped, action, arcNumber, token, from_date, to_date, documentNumber)
+    # search_html = arc_model.search(ped, action, arcNumber, token, from_date, to_date, documentNumber)
+    search_html = arc_model.create_list(token=token, ped=ped, action=action, arcNumber=arcNumber,
+                                        viewFromDate=from_date, viewToDate=to_date, documentNumber=documentNumber)
     if not search_html:
         return
     seqNum, documentNumber = arc_regex.search(search_html)
@@ -425,21 +432,23 @@ except Exception as e:
 logger.debug('--------------<<<END>>>--------------')
 
 
-# list_data=[]
-# v={}
-# v['Id']='id'
-# v['TicketNumber']='0017996642045'
-# v['Ticket']='7996642045'
-# v['IssueDate']='2017-04-23'
-# v['ArcNumber']='05507073'
-# v['Comm']='0.00'
-# v['QCComm']='8.76'
-# v['TourCode']=None
-# v['QCTourCode']='S602'
-# v['ArcComm']=''
-# v['ArcTourCode']=None
-# v['TicketDesignator']=''
-# v['ArcCommUpdated']=''
-# v['ArcTourCodeUpdated']=''
-# v['Status']=0
+# list_data = []
+# v = {}
+# v['Id'] = 'id'
+# v['TicketNumber'] = '2207130324807'
+# v['Ticket'] = '7130324807'
+# v['IssueDate'] = '2018-09-19'
+# v['ArcNumber'] = '45668571'
+# v['FareType'] = 'PUB'
+# v['Comm'] = '50.00'
+# v['QCComm'] = '50.00'
+# v['TourCode'] = '267IN'
+# v['QCTourCode'] = '267IN'
+# v['ArcComm'] = '50.00'
+# v['ArcTourCode'] = '267IN'
+# v['TicketDesignator'] = 'FR50'
+# v['ArcCommUpdated'] = ''
+# v['ArcTourCodeUpdated'] = ''
+# v['ArcId'] = 'arcId'
+# v['Status'] = 0
 # list_data.append(v)

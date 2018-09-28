@@ -94,12 +94,15 @@ def execute(post, action, token, from_date, to_date):
     date_time = datetime.datetime.strptime(date, '%Y-%m-%d')
     ped = (date_time + datetime.timedelta(days=(6 - date_time.weekday()))).strftime('%d%b%y').upper()
     logger.info("UPDATING PED: " + ped + " arc: " + arcNumber + " tkt: " + documentNumber)
-    search_html = arc_model.search(ped, action, arcNumber, token, from_date, to_date, documentNumber)
+    # search_html = arc_model.search(ped, action, arcNumber, token, from_date, to_date, documentNumber)
+    search_html = arc_model.create_list(token=token, ped=ped, action=action, arcNumber=arcNumber,
+                                        viewFromDate=from_date, viewToDate=to_date, documentNumber=documentNumber)
     if not search_html:
         return
 
     seqNum, documentNumber = arc_regex.search(search_html)
     if not seqNum:
+        logger.warn("REGEX SEARCH ERROR!")
         return
 
     modify_html = arc_model.modifyTran(seqNum, documentNumber)
@@ -116,6 +119,7 @@ def execute(post, action, token, from_date, to_date):
 
     token, maskedFC, arc_commission, waiverCode, certificates = arc_regex.modifyTran(modify_html)
     if not token:
+        logger.warn("REGEX MODIFY TRAN ERROR!")
         return
 
     post['ArcComm'] = arc_commission
@@ -212,7 +216,9 @@ def check(post, action, token, from_date, to_date):
     date_time = datetime.datetime.strptime(date, '%Y-%m-%d')
     ped = (date_time + datetime.timedelta(days=(6 - date_time.weekday()))).strftime('%d%b%y').upper()
     logger.info("CHECK PED: " + ped + " arc: " + arcNumber + " tkt: " + documentNumber)
-    search_html = arc_model.search(ped, action, arcNumber, token, from_date, to_date, documentNumber)
+    # search_html = arc_model.search(ped, action, arcNumber, token, from_date, to_date, documentNumber)
+    search_html = arc_model.create_list(token=token, ped=ped, action=action, arcNumber=arcNumber,
+                                        viewFromDate=from_date, viewToDate=to_date, documentNumber=documentNumber)
     if not search_html:
         return
 

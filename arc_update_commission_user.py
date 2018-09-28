@@ -46,7 +46,9 @@ def execute(post, action, token, from_date, to_date):
     date_time = datetime.datetime.strptime(date, '%Y-%m-%d')
     ped = (date_time + datetime.timedelta(days=(6 - date_time.weekday()))).strftime('%d%b%y').upper()
     logger.info("UPDATING PED: " + ped + " arc: " + arcNumber + " tkt: " + documentNumber)
-    search_html = arc_model.search(ped, action, arcNumber, token, from_date, to_date, documentNumber)
+    # search_html = arc_model.search(ped, action, arcNumber, token, from_date, to_date, documentNumber)
+    search_html = arc_model.create_list(token=token, ped=ped, action=action, arcNumber=arcNumber,
+                                        viewFromDate=from_date, viewToDate=to_date, documentNumber=documentNumber)
     if not search_html:
         return
 
@@ -154,7 +156,9 @@ def check(post, action, token, from_date, to_date):
     date_time = datetime.datetime.strptime(date, '%Y-%m-%d')
     ped = (date_time + datetime.timedelta(days=(6 - date_time.weekday()))).strftime('%d%b%y').upper()
     logger.info("CHECK PED: " + ped + " arc: " + arcNumber + " tkt: " + documentNumber)
-    search_html = arc_model.search(ped, action, arcNumber, token, from_date, to_date, documentNumber)
+    # search_html = arc_model.search(ped, action, arcNumber, token, from_date, to_date, documentNumber)
+    search_html = arc_model.create_list(token=token, ped=ped, action=action, arcNumber=arcNumber,
+                                        viewFromDate=from_date, viewToDate=to_date, documentNumber=documentNumber)
     if not search_html:
         return
 
@@ -469,7 +473,7 @@ except Exception as e:
     logger.critical(e)
 
 
-#-----------------export excel
+# -----------------export excel
 file_name = "iar_update_commission_by_user"
 try:
     arc_model.exportExcel(list_data, file_name)

@@ -23,7 +23,9 @@ sql_pwd = conf.get("sql", "pwd")
 def execute(ped, action, arc_number, airline_number, document_number, token, from_date, to_date):
     result = {'void': 0, 'update': 0}
     logger.info("EXECUTE ARC: %s, AIR: %s, TKT: %s, DATE: %s", arc_number, airline_number, document_number, ped)
-    search_html = arc_model.search(ped, action, arc_number, token, from_date, to_date, document_number)
+    # search_html = arc_model.search(ped, action, arc_number, token, from_date, to_date, document_number)
+    search_html = arc_model.create_list(token=token, ped=ped, action=action, arcNumber=arc_number,
+                                        viewFromDate=from_date, viewToDate=to_date, documentNumber=document_number)
     if not search_html:
         return
 

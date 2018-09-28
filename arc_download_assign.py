@@ -21,7 +21,7 @@ class MyThread(threading.Thread):
         # print "runnuing: " + self.name + '\n'
         thread_lock.acquire()
         try:
-            # logger.info("execute")
+            # logger.info("execute, is this week %s." % self.is_this_week)
             execute(self.name, self.is_this_week, self.csv_lines, self.is_first_arc_number)
         except Exception as ex:
             logger.fatal(ex)
@@ -40,9 +40,15 @@ class WebSocketThread(threading.Thread):
     def run(self):
         print 'new websocket client joined!'
         data = self.connection.recv(1024)
+        # logger.info("recive data from client: %s" % data)
         re = parse_data(data)
-        print re
+        logger.info("recive data (parse) from client: %s." % re)
+        # print re
         self.__send("LOADING")
+        global is_this_week
+        if re and re == "this week":
+            is_this_week = True
+
         thread_set(is_this_week, csv_lines, is_first_arc_number)
         self.__send("OVER")
 
@@ -144,10 +150,17 @@ def execute(name, is_this_week, csv_lines, is_first_arc_number):
                 continue
 
             # print "create list"
-            create_list_html = arc_model.create_list(token, ped, action, arc_number, selectedStatusId="",
+            # create_list_html = arc_model.create_list(token, ped, action, arc_number, selectedStatusId="",
+            #                                          selectedTransactionType="SA", selectedFormOfPayment="CA",
+            #                                          dateTypeRadioButtons="ped", viewFromDate=from_date, viewToDate=to_date,
+            #                                          selectedNumberOfResults="20")
+
+            create_list_html = arc_model.create_list(token=token, ped=ped, action=action, arcNumber=arc_number,
+                                                     viewFromDate=from_date, viewToDate=to_date, documentNumber="",
+                                                     selectedStatusId="", selectedDocumentType="",
                                                      selectedTransactionType="SA", selectedFormOfPayment="CA",
-                                                     dateTypeRadioButtons="ped", viewFromDate=from_date, viewToDate=to_date,
-                                                     selectedNumberOfResults="20")
+                                                     dateTypeRadioButtons="ped", selectedNumberOfResults="20")
+
             token = arc_regex.create_list(create_list_html)
 
             if not token:
@@ -221,8 +234,8 @@ logger.debug("HOST: %s, PORT: %d" % (HOST, PORT))
 download_file_path = conf.get("download", "filePath")
 
 is_this_week = False
-if date_time.weekday() > 1:
-    is_this_week = True
+# if date_time.weekday() > 1:
+#     is_this_week = True
 
 # thread_set(is_this_week, csv_lines, is_first_arc_number)
 

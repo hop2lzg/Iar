@@ -40,8 +40,14 @@ class WebSocketThread(threading.Thread):
         print 'new websocket client joined!'
         data = self.connection.recv(1024)
         re = parse_data(data)
-        print re
+        logger.info("recive data (parse) from client: %s." % re)
+
         self.__send("LOADING")
+
+        global is_this_week
+        if re and re == "this week":
+            is_this_week = True
+
         thread_set(is_this_week, csv_lines, is_first_arc_number)
         self.__send("OVER")
 
@@ -143,10 +149,17 @@ def execute(name, is_this_week, csv_lines, is_first_arc_number):
 
             # print "create list"
             selected_status_id = "E"
-            create_list_html = arc_model.create_list(token, ped, action, arc_number, selectedStatusId=selected_status_id,
+            # create_list_html = arc_model.create_list(token, ped, action, arc_number, selectedStatusId=selected_status_id,
+            #                                          selectedTransactionType="SA", selectedFormOfPayment="CA",
+            #                                          dateTypeRadioButtons="ped", viewFromDate=from_date, viewToDate=to_date,
+            #                                          selectedNumberOfResults="20")
+
+            create_list_html = arc_model.create_list(token=token, ped=ped, action=action, arcNumber=arc_number,
+                                                     viewFromDate=from_date, viewToDate=to_date, documentNumber="",
+                                                     selectedStatusId=selected_status_id, selectedDocumentType="",
                                                      selectedTransactionType="SA", selectedFormOfPayment="CA",
-                                                     dateTypeRadioButtons="ped", viewFromDate=from_date, viewToDate=to_date,
-                                                     selectedNumberOfResults="20")
+                                                     dateTypeRadioButtons="ped", selectedNumberOfResults="20")
+
             token = arc_regex.create_list(create_list_html)
 
             if not token:
@@ -218,8 +231,8 @@ logger.debug("HOST: %s, PORT: %d" % (HOST, PORT))
 download_file_path = conf.get("download", "filePath")
 
 is_this_week = False
-if date_time.weekday() > 1:
-    is_this_week = True
+# if date_time.weekday() > 1:
+#     is_this_week = True
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)

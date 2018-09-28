@@ -18,7 +18,9 @@ def execute(post, action, token, from_date, to_date):
     ped = (date_time+datetime.timedelta(days=(6-date_time.weekday()))).strftime('%d%b%y').upper()
     # logger.info("###### PED: "+ped+" ARC: "+arcNumber+" TKT: "+documentNumber)
     logger.info("###### PED: %s, ARC: %s, TKT: %s, ERROR: %s." % (ped, arcNumber, documentNumber, error_code))
-    search_html = arc_model.search(ped, action, arcNumber, token, from_date, to_date, documentNumber)
+    # search_html = arc_model.search(ped, action, arcNumber, token, from_date, to_date, documentNumber)
+    search_html = arc_model.create_list(token=token, ped=ped, action=action, arcNumber=arcNumber,
+                                        viewFromDate=from_date, viewToDate=to_date, documentNumber=documentNumber)
     if not search_html:
         return
 
@@ -76,6 +78,107 @@ def execute(post, action, token, from_date, to_date):
             else:
                 logger.warning('update may be error')
 
+
+def get_account_codes(mssql, account_code_sql):
+    account_code_rows = mssql.ExecQuery(account_code_sql)
+    if len(account_code_rows) > 0:
+        account_codes = []
+        for account_code_row in account_code_rows:
+            account_code = account_code_row.AccountCode
+            if not account_code:
+                continue
+
+            if account_code not in account_codes:
+                account_codes.append(account_code)
+
+        return account_codes
+
+def list_data_add(mssql, data, account_codes, error_code, list_id):
+    if not account_codes:
+        return
+
+    account_code_where = ""
+    if len(account_codes) == 1:
+        account_code_where = "and t.AccountCode='" + account_codes[0] + "' "
+    else:
+        account_code_where = "and t.AccountCode in ('" + (",".join(account_codes).replace(",", "','")) + "') "
+
+    ticket_sql = ""
+
+    if error_code == "QC-HRISK":
+        ticket_sql = '''declare @date date
+    set @date=DATEADD(DAY,-2,GETDATE())
+    select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-HRISK' ErrorCode,iar.Id iarId from Ticket t
+    left join IarUpdate iar
+    on t.Id=iar.TicketId
+    where t.IssueDate=@date
+    and t.Status not like '[NV]%'
+    and ISNULL(t.McoNumber,'')=''
+    ''' + account_code_where + '''
+    and (iar.Id is null or iar.IsPutError=0)
+    and (iar.AuditorStatus is null or iar.AuditorStatus=0)
+    '''
+    elif error_code == "QC-LF":
+        ticket_sql = '''
+        declare @date date
+set @date=DATEADD(DAY,-1,GETDATE())
+select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-LF' ErrorCode,iar.Id iarId from Ticket t
+left join IarUpdate iar
+on t.Id=iar.TicketId
+INNER JOIN TicketLowestFare lf
+on t.Id=lf.TicketId
+where t.IssueDate=@date
+and t.Status not like '[NV]%'
+and ISNULL(t.McoNumber,'')=''
+''' + account_code_where + '''
+and ISNULL(lf.Pnr,'')<>''
+and (iar.Id is null or iar.IsPutError=0)
+and (iar.AuditorStatus is null or iar.AuditorStatus=0)
+'''
+    elif error_code == "AT-ERROR":
+        ticket_sql = '''
+        declare @startDate date
+declare @endDate date
+set @startDate=DATEADD(day,-1,GETDATE())
+set @endDate=GETDATE()
+select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'AT-ERROR' ErrorCode,iar.Id iarId from Ticket t
+left join IarUpdate iar
+on t.Id=iar.TicketId
+where t.CreateDate>=@startDate
+and t.CreateDate<@endDate
+and t.Status not like '[NV]%'
+and t.sourceFrom in ('GAT','SAT')
+and ISNULL(t.McoNumber,'')=''
+''' + account_code_where + '''
+and (iar.Id is null or iar.IsPutError=0)
+and (iar.AuditorStatus is null or iar.AuditorStatus=0)
+        '''
+    else:
+        return
+
+    ticket_rows = mssql.ExecQuery(ticket_sql)
+    if len(ticket_rows) > 0:
+        print ticket_rows
+        for ticket_row in ticket_rows:
+            v = {}
+            v['Id'] = ticket_row.Id
+            if v['Id'] not in list_id:
+                list_id.append(v['Id'])
+            else:
+                continue
+            v['TicketNumber'] = ticket_row.TicketNumber
+            v['Ticket'] = ticket_row.Ticket
+            v['IssueDate'] = str(ticket_row.IssueDate)
+            v['ArcNumber'] = ticket_row.ArcNumber
+            v['Status'] = 0
+            v['ErrorCode'] = ticket_row.ErrorCode
+            v['IarId'] = ticket_row.iarId
+            v['Commission'] = None
+            if ticket_row.Comm is not None:
+                v['Commission'] = str(ticket_row.Comm)
+
+            data.append(v)
+
 arc_model = arc.ArcModel("arc put error")
 arc_regex = arc.Regex()
 logger = arc_model.logger
@@ -100,6 +203,7 @@ sql_database_44 = conf.get(section_sql_44, "database")
 sql_user_44 = conf.get(section_sql_44, "user")
 sql_pwd_44 = conf.get(section_sql_44, "pwd")
 
+# --------------------------------------------execute sql--------------------------------
 ms = arc.MSSQL(server=sql_server, db=sql_database, user=sql_user, pwd=sql_pwd)
 sql = ('''declare @t date
 set @t=DATEADD(DAY,-1,GETDATE())
@@ -186,19 +290,18 @@ and ISNULL(McoNumber,'')=''
 where aa.Profit<0
 and -aa.Profit > Base*0.05
 union
-select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-ERROR' ErrorCode,iar.Id iarId from Ticket t
+select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'AT-ERROR' ErrorCode,iar.Id iarId from Ticket t
 left join IarUpdate iar
 on t.Id=iar.TicketId
-where t.sourceFrom='AUTOTICKET'
+where (t.sourceFrom='SAT' or t.sourceFrom='GAT')
 and t.IssueDate=@t
-and PaymentType='C'
-and (t.TicketNumber like '78[14]%' or t.TicketNumber like '731%')
+and t.PaymentType='C'
+and (t.TicketNumber like '78[14]%' or t.TicketNumber like '731%' or t.TicketNumber like '876%' or t.TicketNumber like '880%')
 and t.Charge<t.Total
 and t.GDS='1A'
 and ISNULL(t.McoNumber,'')<>''
 and (iar.Id is null or iar.IsPutError=0)
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
-and ISNULL(McoNumber,'')=''
 union
 select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-RE' ErrorCode,iar.Id iarId from Ticket t
 left join IarUpdate iar
@@ -265,121 +368,130 @@ if not list_data:
 
         list_data.append(v)
 
-ms_44 = arc.MSSQL(server=sql_server_44, db=sql_database_44, user=sql_user_44, pwd=sql_pwd_44)
-sql_44 = "select distinct AccountCode from dbo.T_Users where Highrisk=1"
-
-high_risk_account_code_rows = ms_44.ExecQuery(sql_44)
-if len(high_risk_account_code_rows) > 0:
-    high_risk_account_codes = []
-    for high_risk_account_code_row in high_risk_account_code_rows:
-        high_risk_account_code = high_risk_account_code_row.AccountCode
-        if not high_risk_account_code:
-            continue
-
-        if high_risk_account_code not in high_risk_account_codes:
-            high_risk_account_codes.append(high_risk_account_code)
-
-    if high_risk_account_codes:
-        acct_where = ""
-        if len(high_risk_account_codes) == 1:
-            acct_where = "and t.AccountCode='" + high_risk_account_codes[0] + "' "
-        else:
-            acct_where = "and t.AccountCode in ('" + (",".join(high_risk_account_codes).replace(",", "','")) + "') "
-
-        sql_high_risk = '''
-        declare @date date
-set @date=DATEADD(DAY,-1,GETDATE())
-select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-HRISK' ErrorCode,iar.Id iarId from Ticket t
-left join IarUpdate iar
-on t.Id=iar.TicketId
-where t.IssueDate=@date
-and t.Status not like '[NV]%'
-and ISNULL(t.McoNumber,'')=''
-''' + acct_where + '''
-and (iar.Id is null or iar.IsPutError=0)
-and (iar.AuditorStatus is null or iar.AuditorStatus=0)
-'''
-        high_risk_rows = ms.ExecQuery(sql_high_risk)
-        if len(high_risk_rows) > 0:
-            for high_risk_row in high_risk_rows:
-                v = {}
-                v['Id'] = high_risk_row.Id
-                if v['Id'] not in list_id:
-                    list_id.append(v['Id'])
-                else:
-                    continue
-                v['TicketNumber'] = high_risk_row.TicketNumber
-                v['Ticket'] = high_risk_row.Ticket
-                v['IssueDate'] = str(high_risk_row.IssueDate)
-                v['ArcNumber'] = high_risk_row.ArcNumber
-                v['Status'] = 0
-                v['ErrorCode'] = high_risk_row.ErrorCode
-                v['IarId'] = high_risk_row.iarId
-                v['Commission'] = None
-                if high_risk_row.Comm is not None:
-                    v['Commission'] = str(high_risk_row.Comm)
-
-                list_data.append(v)
-
 # print list_data
-sql_44_low_fare = "select distinct AccountCode from dbo.T_Users where LowFare=1"
-low_fare_account_code_rows = ms_44.ExecQuery(sql_44_low_fare)
-# print low_fare_account_code_rows
-if len(low_fare_account_code_rows) > 0:
-    low_fare_account_codes = []
-    for low_fare_account_code_row in low_fare_account_code_rows:
-        low_fare_account_code = low_fare_account_code_row.AccountCode
-        if not low_fare_account_code:
-            continue
+ms_44 = arc.MSSQL(server=sql_server_44, db=sql_database_44, user=sql_user_44, pwd=sql_pwd_44)
 
-        if low_fare_account_code not in low_fare_account_codes:
-            low_fare_account_codes.append(low_fare_account_code)
+high_risk_sql = "select distinct AccountCode from dbo.T_Users where Highrisk=1"
+list_data_add(ms, list_data, get_account_codes(ms_44, high_risk_sql), "QC-HRISK", list_id)
+# print list_data
+low_fare_sql = "select distinct AccountCode from dbo.T_Users where LowFare=1"
+list_data_add(ms, list_data, get_account_codes(ms_44, low_fare_sql), "QC-LF", list_id)
+# print list_data
+AT_error_sql = "select distinct AccountCode from dbo.T_Users where ATError=1"
+list_data_add(ms, list_data, get_account_codes(ms_44, AT_error_sql), "AT-ERROR", list_id)
+# print list_data
+# high_risk_account_code_rows = ms_44.ExecQuery(sql_44)
+# if len(high_risk_account_code_rows) > 0:
+#     high_risk_account_codes = []
+#     for high_risk_account_code_row in high_risk_account_code_rows:
+#         high_risk_account_code = high_risk_account_code_row.AccountCode
+#         if not high_risk_account_code:
+#             continue
+#
+#         if high_risk_account_code not in high_risk_account_codes:
+#             high_risk_account_codes.append(high_risk_account_code)
+#
+#     if high_risk_account_codes:
+#         acct_where = ""
+#         if len(high_risk_account_codes) == 1:
+#             acct_where = "and t.AccountCode='" + high_risk_account_codes[0] + "' "
+#         else:
+#             acct_where = "and t.AccountCode in ('" + (",".join(high_risk_account_codes).replace(",", "','")) + "') "
+#
+#         sql_high_risk = '''
+#         declare @date date
+# set @date=DATEADD(DAY,-1,GETDATE())
+# select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-HRISK' ErrorCode,iar.Id iarId from Ticket t
+# left join IarUpdate iar
+# on t.Id=iar.TicketId
+# where t.IssueDate=@date
+# and t.Status not like '[NV]%'
+# and ISNULL(t.McoNumber,'')=''
+# ''' + acct_where + '''
+# and (iar.Id is null or iar.IsPutError=0)
+# and (iar.AuditorStatus is null or iar.AuditorStatus=0)
+# '''
+#         high_risk_rows = ms.ExecQuery(sql_high_risk)
+#         if len(high_risk_rows) > 0:
+#             for high_risk_row in high_risk_rows:
+#                 v = {}
+#                 v['Id'] = high_risk_row.Id
+#                 if v['Id'] not in list_id:
+#                     list_id.append(v['Id'])
+#                 else:
+#                     continue
+#                 v['TicketNumber'] = high_risk_row.TicketNumber
+#                 v['Ticket'] = high_risk_row.Ticket
+#                 v['IssueDate'] = str(high_risk_row.IssueDate)
+#                 v['ArcNumber'] = high_risk_row.ArcNumber
+#                 v['Status'] = 0
+#                 v['ErrorCode'] = high_risk_row.ErrorCode
+#                 v['IarId'] = high_risk_row.iarId
+#                 v['Commission'] = None
+#                 if high_risk_row.Comm is not None:
+#                     v['Commission'] = str(high_risk_row.Comm)
+#
+#                 list_data.append(v)
 
-    if low_fare_account_codes:
-        low_fare_acct_where = ""
-        if len(low_fare_account_codes) == 1:
-            low_fare_acct_where = "and t.AccountCode='" + low_fare_account_codes[0] + "' "
-        else:
-            low_fare_acct_where = "and t.AccountCode in ('" + (",".join(low_fare_account_codes).replace(",", "','")) + "') "
-
-        sql_low_fare = '''
-        declare @date date
-set @date=DATEADD(DAY,-1,GETDATE())
-select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-LF' ErrorCode,iar.Id iarId from Ticket t
-left join IarUpdate iar
-on t.Id=iar.TicketId
-INNER JOIN TicketLowestFare lf
-on t.Id=lf.TicketId
-where t.IssueDate=@date
-and t.Status not like '[NV]%'
-and ISNULL(t.McoNumber,'')=''
-''' + low_fare_acct_where + '''
-and ISNULL(lf.Pnr,'')<>''
-and (iar.Id is null or iar.IsPutError=0)
-and (iar.AuditorStatus is null or iar.AuditorStatus=0)
-'''
-        low_fare_rows = ms.ExecQuery(sql_low_fare)
-        # print low_fare_rows
-        if len(low_fare_rows) > 0:
-            for low_fare_row in low_fare_rows:
-                v = {}
-                v['Id'] = low_fare_row.Id
-                if v['Id'] not in list_id:
-                    list_id.append(v['Id'])
-                else:
-                    continue
-                v['TicketNumber'] = low_fare_row.TicketNumber
-                v['Ticket'] = low_fare_row.Ticket
-                v['IssueDate'] = str(low_fare_row.IssueDate)
-                v['ArcNumber'] = low_fare_row.ArcNumber
-                v['Status'] = 0
-                v['ErrorCode'] = low_fare_row.ErrorCode
-                v['IarId'] = low_fare_row.iarId
-                v['Commission'] = None
-                if low_fare_row.Comm is not None:
-                    v['Commission'] = str(low_fare_row.Comm)
-
-                list_data.append(v)
+# # print list_data
+# sql_44_low_fare = "select distinct AccountCode from dbo.T_Users where LowFare=1"
+# low_fare_account_code_rows = ms_44.ExecQuery(sql_44_low_fare)
+# # print low_fare_account_code_rows
+# if len(low_fare_account_code_rows) > 0:
+#     low_fare_account_codes = []
+#     for low_fare_account_code_row in low_fare_account_code_rows:
+#         low_fare_account_code = low_fare_account_code_row.AccountCode
+#         if not low_fare_account_code:
+#             continue
+#
+#         if low_fare_account_code not in low_fare_account_codes:
+#             low_fare_account_codes.append(low_fare_account_code)
+#
+#     if low_fare_account_codes:
+#         low_fare_acct_where = ""
+#         if len(low_fare_account_codes) == 1:
+#             low_fare_acct_where = "and t.AccountCode='" + low_fare_account_codes[0] + "' "
+#         else:
+#             low_fare_acct_where = "and t.AccountCode in ('" + (",".join(low_fare_account_codes).replace(",", "','")) + "') "
+#
+#         sql_low_fare = '''
+#         declare @date date
+# set @date=DATEADD(DAY,-1,GETDATE())
+# select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-LF' ErrorCode,iar.Id iarId from Ticket t
+# left join IarUpdate iar
+# on t.Id=iar.TicketId
+# INNER JOIN TicketLowestFare lf
+# on t.Id=lf.TicketId
+# where t.IssueDate=@date
+# and t.Status not like '[NV]%'
+# and ISNULL(t.McoNumber,'')=''
+# ''' + low_fare_acct_where + '''
+# and ISNULL(lf.Pnr,'')<>''
+# and (iar.Id is null or iar.IsPutError=0)
+# and (iar.AuditorStatus is null or iar.AuditorStatus=0)
+# '''
+#         low_fare_rows = ms.ExecQuery(sql_low_fare)
+#         # print low_fare_rows
+#         if len(low_fare_rows) > 0:
+#             for low_fare_row in low_fare_rows:
+#                 v = {}
+#                 v['Id'] = low_fare_row.Id
+#                 if v['Id'] not in list_id:
+#                     list_id.append(v['Id'])
+#                 else:
+#                     continue
+#                 v['TicketNumber'] = low_fare_row.TicketNumber
+#                 v['Ticket'] = low_fare_row.Ticket
+#                 v['IssueDate'] = str(low_fare_row.IssueDate)
+#                 v['ArcNumber'] = low_fare_row.ArcNumber
+#                 v['Status'] = 0
+#                 v['ErrorCode'] = low_fare_row.ErrorCode
+#                 v['IarId'] = low_fare_row.iarId
+#                 v['Commission'] = None
+#                 if low_fare_row.Comm is not None:
+#                     v['Commission'] = str(low_fare_row.Comm)
+#
+#                 list_data.append(v)
 
 
 def run(user_name, datas):

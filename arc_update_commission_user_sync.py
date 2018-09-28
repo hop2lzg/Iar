@@ -26,7 +26,9 @@ def check(post, action, token, from_date, to_date):
 
     logger.info("CHECK PED: " + ped + " arc: " + arcNumber + " tkt: " + documentNumber)
 
-    search_html = arc_model.search(ped, action, arcNumber, token, from_date, to_date, documentNumber)
+    # search_html = arc_model.search(ped, action, arcNumber, token, from_date, to_date, documentNumber)
+    search_html = arc_model.create_list(token=token, ped=ped, action=action, arcNumber=arcNumber,
+                                        viewFromDate=from_date, viewToDate=to_date, documentNumber=documentNumber)
     if not search_html:
         logger.debug("search html None")
         return

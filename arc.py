@@ -27,8 +27,11 @@ class ArcModel:
         if logger_name:
             self.logger = logging.getLogger(logger_name)
         # self.logger.debug("import arc")
-        self._accpet = 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+        self._host = 'iar2.arccorp.com'
+        self._origin = 'https://iar2.arccorp.com'
+        self._accept = 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
         self._accept_language = 'zh-CN,zh;q=0.8,en;q=0.6'
+        self._accept_encoding = 'gzip, deflate, br'
         self._cache_control = 'max-age=0'
         self._connection = 'keep-alive'
         self._content_type = 'application/x-www-form-urlencoded'
@@ -134,7 +137,7 @@ class ArcModel:
         data = urllib.urlencode(values)
 
         headers = {
-            'Accept': self._accpet,
+            'Accept': self._accept,
             'Accept-Encoding': 'gzip, deflate',
             'Accept-Language': self._accept_language,
             'Cache-Control': self._cache_control,
@@ -199,9 +202,9 @@ class ArcModel:
             self.__save_page("listTransactions", arcNumber, html)
             return html
 
-    def create_list(self, token, ped, action, arcNumber, selectedStatusId, selectedTransactionType, selectedFormOfPayment,
-                    dateTypeRadioButtons, viewFromDate, viewToDate, selectedNumberOfResults, isNext=False, page=0,
-                    selectedDocumentType=""):
+    def create_list(self, token, ped, action, arcNumber, viewFromDate, viewToDate, documentNumber, selectedStatusId='',
+                    selectedDocumentType='', selectedTransactionType='', selectedFormOfPayment='', dateTypeRadioButtons='ped',
+                    selectedNumberOfResults='20', is_next=False, page=0):
         self.logger.debug("CREATE LIST: %s" % arcNumber)
         values = {
             'org.apache.struts.taglib.html.TOKEN': token,
@@ -209,8 +212,8 @@ class ArcModel:
             'ped': ped,
             # 'selectedStatusId': "",
             'selectedStatusId': selectedStatusId,
-            'documentNumber': '',
-            'docNumberEnd': '',
+            'documentNumber': documentNumber,
+            'docNumberEnd': documentNumber,
             'selectedDocumentType': selectedDocumentType,
             # 'selectedTransactionType': 'SA',
             'selectedTransactionType': selectedTransactionType,
@@ -229,13 +232,14 @@ class ArcModel:
             'threeDigitCarrierCode': '',
             # 'selectedNumberOfResults': '20',
             'selectedNumberOfResults': selectedNumberOfResults,
+            # 'createlistdisabled': "1",
             'list.x': '19',
             'list.y': '8',
             'printOption': '1',
             'printaction': '0'
         }
 
-        if isNext:
+        if is_next:
             del values['list.x']
             del values['list.y']
             values['next.x'] = "17"
@@ -244,18 +248,24 @@ class ArcModel:
         url = "https://iar2.arccorp.com/IAR/listTransactions.do"
         data = urllib.urlencode(values)
         headers = {
-            'Host': 'iar2.arccorp.com',
+            'Host': self._host,
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:59.0) Gecko/20100101 Firefox/59.0',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            # 'User-Agent': self._user_agent,
+            'Accept': self._accept,
             'Accept-Language': 'zh-CN,zh;q=0.8,zh-TW;q=0.7,zh-HK;q=0.5,en-US;q=0.3,en;q=0.2',
-            'Accept-Encoding': 'gzip, deflate, br',
+            # 'Accept-Language': self._accept_language,
+            'Accept-Encoding': self._accept_encoding,
             'Referer': 'https://iar2.arccorp.com/IAR/listTransactions.do?ped=' + ped + '&action=' + action + '&arcNumber=' + arcNumber + '',
-            'Content-Type': 'application/x-www-form-urlencoded',
+            'Content-Type': self._content_type,
             'Content-Length': len(data),
             'Connection': self._connection,
             'Upgrade-Insecure-Requests': self._upgrade_insecure_requests
         }
-        # print headers
+
+        if documentNumber:
+            headers['Cache-Control'] = self._cache_control
+            headers['Origin'] = self._origin
+
         req = urllib2.Request(url, data, headers)
         res = self.__try_request(req)
         if res:
@@ -305,7 +315,7 @@ class ArcModel:
         url = "https://iar2.arccorp.com/IAR/listTransactions.do"
         data = urllib.urlencode(values)
         headers = {
-            'Accept': self._accpet,
+            'Accept': self._accept,
             'Accept-Encoding': 'gzip, deflate',
             'Accept-Language': self._accept_language,
             'Cache-Control': self._cache_control,
@@ -313,8 +323,8 @@ class ArcModel:
             # 'Content-Length':'480',
             'Content-Length': len(data),
             'Content-Type': self._content_type,
-            'Host': 'iar2.arccorp.com',
-            'Origin': 'https://iar2.arccorp.com',
+            'Host': self._host,
+            'Origin': self._origin,
             'Referer': 'https://iar2.arccorp.com/IAR/listTransactions.do?ped=' + ped + '&action=' + action + '&arcNumber=' + arcNumber + '',
             'Upgrade-Insecure-Requests': self._upgrade_insecure_requests,
             'User-Agent': self._user_agent
@@ -334,56 +344,56 @@ class ArcModel:
         else:
             self.logger.warning('Download csv error :' + arcNumber)
 
-    def search(self, ped, action, arcNumber, token, from_date, to_date, documentNumber, dateTypeRadioButtons='ped'):
-        self.logger.debug("SEARCH TICKET: %s" % documentNumber)
-        values = {
-            'org.apache.struts.taglib.html.TOKEN': token,
-            'arcNumber': arcNumber,
-            'ped': ped,
-            'selectedStatusId': '',
-            'documentNumber': documentNumber,
-            'docNumberEnd': documentNumber,
-            'selectedDocumentType': '',
-            'selectedTransactionType': '',
-            'selectedFormOfPayment': '',
-            'selectedInternationalIndicator': '',
-            'systemProvider': '',
-            'dateTypeRadioButtons': dateTypeRadioButtons,
-            'viewFromDate': from_date,
-            'viewToDate': to_date,
-            'commTypeRadioButtons': 'commEqualTo',
-            'commissionAmount': '',
-            'threeDigitCarrierCode': '',
-            'selectedNumberOfResults': '20',
-            'list.x': '45',
-            'list.y': '11',
-            'printOption': '1',
-            'printaction': '0'
-        }
-
-        url = "https://iar2.arccorp.com/IAR/listTransactions.do"
-        data = urllib.urlencode(values)
-
-        headers = {
-            'Accept': self._accpet,
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Accept-Language': self._accept_language,
-            'Cache-Control': self._cache_control,
-            'Connection': self._connection,
-            'Content-Length': len(data),
-            'Content-Type': self._content_type,
-            'Host': 'iar2.arccorp.com',
-            'Origin': 'https://iar2.arccorp.com',
-            'Referer': 'https://iar2.arccorp.com/IAR/listTransactions.do?ped=' + ped + '&action=' + action + '&arcNumber=' + arcNumber + '',
-            'Upgrade-Insecure-Requests': self._upgrade_insecure_requests,
-            'User-Agent': self._user_agent
-        }
-        req = urllib2.Request(url, data, headers)
-        res = self.__try_request(req)
-        if res:
-            html = res.read()
-            self.__save_page("search", "search", html)
-            return html
+    # def search(self, ped, action, arcNumber, token, from_date, to_date, documentNumber, dateTypeRadioButtons='ped'):
+    #     self.logger.debug("SEARCH TICKET: %s" % documentNumber)
+    #     values = {
+    #         'org.apache.struts.taglib.html.TOKEN': token,
+    #         'arcNumber': arcNumber,
+    #         'ped': ped,
+    #         'selectedStatusId': '',
+    #         'documentNumber': documentNumber,
+    #         'docNumberEnd': documentNumber,
+    #         'selectedDocumentType': '',
+    #         'selectedTransactionType': '',
+    #         'selectedFormOfPayment': '',
+    #         'selectedInternationalIndicator': '',
+    #         'systemProvider': '',
+    #         'dateTypeRadioButtons': dateTypeRadioButtons,
+    #         'viewFromDate': from_date,
+    #         'viewToDate': to_date,
+    #         'commTypeRadioButtons': 'commEqualTo',
+    #         'commissionAmount': '',
+    #         'threeDigitCarrierCode': '',
+    #         'selectedNumberOfResults': '20',
+    #         'list.x': '45',
+    #         'list.y': '11',
+    #         'printOption': '1',
+    #         'printaction': '0'
+    #     }
+    #
+    #     url = "https://iar2.arccorp.com/IAR/listTransactions.do"
+    #     data = urllib.urlencode(values)
+    #
+    #     headers = {
+    #         'Accept': self._accept,
+    #         'Accept-Encoding': 'gzip, deflate, br',
+    #         'Accept-Language': self._accept_language,
+    #         'Cache-Control': self._cache_control,
+    #         'Connection': self._connection,
+    #         'Content-Length': len(data),
+    #         'Content-Type': self._content_type,
+    #         'Host': 'iar2.arccorp.com',
+    #         'Origin': 'https://iar2.arccorp.com',
+    #         'Referer': 'https://iar2.arccorp.com/IAR/listTransactions.do?ped=' + ped + '&action=' + action + '&arcNumber=' + arcNumber + '',
+    #         'Upgrade-Insecure-Requests': self._upgrade_insecure_requests,
+    #         'User-Agent': self._user_agent
+    #     }
+    #     req = urllib2.Request(url, data, headers)
+    #     res = self.__try_request(req)
+    #     if res:
+    #         html = res.read()
+    #         self.__save_page("search", "search", html)
+    #         return html
 
     def add_old_document(self, token, oldDocumentAirlineCodeFI, oldDocumentNumberFI, seqNum, documentNumber, amountCommission,
                          waiverCode, certificateItems, maskedFC):
@@ -421,13 +431,13 @@ class ArcModel:
         data = urllib.urlencode(values)
 
         headers = {
-            'Accept': self._accpet,
-            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept': self._accept,
+            'Accept-Encoding': self._accept_encoding,
             'Accept-Language': self._accept_language,
             'Connection': self._connection,
             'Content-Length': len(data),
             'Content-Type': self._content_type,
-            'Host': 'iar2.arccorp.com',
+            'Host': self._host,
             'Referer': "https://iar2.arccorp.com/IAR/modifyTran.do?seqNum=" + seqNum + "&documentNumber=" + documentNumber,
             'Upgrade-Insecure-Requests': self._upgrade_insecure_requests,
             'User-Agent': self._user_agent
@@ -505,13 +515,13 @@ class ArcModel:
         data = urllib.urlencode(values)
 
         headers = {
-            'Accept': self._accpet,
-            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept': self._accept,
+            'Accept-Encoding': self._accept_encoding,
             'Accept-Language': self._accept_language,
             'Connection': self._connection,
             'Content-Length': len(data),
             'Content-Type': self._content_type,
-            'Host': 'iar2.arccorp.com',
+            'Host': self._host,
             'Referer': "https://iar2.arccorp.com/IAR/financialDetails.do",
             'Upgrade-Insecure-Requests': self._upgrade_insecure_requests,
             'User-Agent': self._user_agent
@@ -540,13 +550,13 @@ class ArcModel:
         data = urllib.urlencode(values)
 
         headers = {
-            'Accept': self._accpet,
-            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept': self._accept,
+            'Accept-Encoding': self._accept_encoding,
             'Accept-Language': self._accept_language,
             'Connection': self._connection,
             'Content-Length': len(data),
             'Content-Type': self._content_type,
-            'Host': 'iar2.arccorp.com',
+            'Host': self._host,
             'Referer': "https://iar2.arccorp.com/IAR/exchangeInput.do",
             'Upgrade-Insecure-Requests': self._upgrade_insecure_requests,
             'User-Agent': self._user_agent
@@ -590,13 +600,13 @@ class ArcModel:
         data = urllib.urlencode(values)
 
         headers = {
-            'Accept': self._accpet,
-            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept': self._accept,
+            'Accept-Encoding': self._accept_encoding,
             'Accept-Language': self._accept_language,
             'Connection': self._connection,
             'Content-Length': len(data),
             'Content-Type': self._content_type,
-            'Host': 'iar2.arccorp.com',
+            'Host': self._host,
             'Referer': "https://iar2.arccorp.com/IAR/exchangeSummary.do",
             'Upgrade-Insecure-Requests': self._upgrade_insecure_requests,
             'User-Agent': self._user_agent
@@ -609,56 +619,56 @@ class ArcModel:
             self.__save_page("remove_old_document", documentNumber, html)
             return html
 
-    def searchError(self, ped, action, arcNumber, token, from_date, to_date):
-        self.logger.debug("SEARCH TICKET ERROR")
-        values = {
-            'org.apache.struts.taglib.html.TOKEN': token,
-            'arcNumber': arcNumber,
-            'ped': ped,
-            'selectedStatusId': 'E',
-            'documentNumber': "",
-            'docNumberEnd': "",
-            'selectedDocumentType': 'ET',
-            'selectedTransactionType': '',
-            'selectedFormOfPayment': '',
-            'selectedInternationalIndicator': '',
-            'systemProvider': '',
-            'dateTypeRadioButtons': 'ped',
-            'viewFromDate': from_date,
-            'viewToDate': to_date,
-            'commTypeRadioButtons': 'commEqualTo',
-            'commissionAmount': '',
-            'threeDigitCarrierCode': '',
-            'selectedNumberOfResults': '500',
-            'list.x': '45',
-            'list.y': '11',
-            'printOption': '1',
-            'printaction': '0'
-        }
-
-        url = "https://iar2.arccorp.com/IAR/listTransactions.do"
-        data = urllib.urlencode(values)
-
-        headers = {
-            'Accept': self._accpet,
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Accept-Language': self._accept_language,
-            'Cache-Control': self._cache_control,
-            'Connection': self._connection,
-            'Content-Length': len(data),
-            'Content-Type': self._content_type,
-            'Host': 'iar2.arccorp.com',
-            'Origin': 'https://iar2.arccorp.com',
-            'Referer': 'https://iar2.arccorp.com/IAR/listTransactions.do?ped=' + ped + '&action=' + action + '&arcNumber=' + arcNumber + '',
-            'Upgrade-Insecure-Requests': self._upgrade_insecure_requests,
-            'User-Agent': self._user_agent
-        }
-        req = urllib2.Request(url, data, headers)
-        res = self.__try_request(req)
-        if res:
-            html = res.read()
-            self.__save_page("search", arcNumber, html)
-            return html
+    # def searchError(self, ped, action, arcNumber, token, from_date, to_date):
+    #     self.logger.debug("SEARCH TICKET ERROR")
+    #     values = {
+    #         'org.apache.struts.taglib.html.TOKEN': token,
+    #         'arcNumber': arcNumber,
+    #         'ped': ped,
+    #         'selectedStatusId': 'E',
+    #         'documentNumber': "",
+    #         'docNumberEnd': "",
+    #         'selectedDocumentType': 'ET',
+    #         'selectedTransactionType': '',
+    #         'selectedFormOfPayment': '',
+    #         'selectedInternationalIndicator': '',
+    #         'systemProvider': '',
+    #         'dateTypeRadioButtons': 'ped',
+    #         'viewFromDate': from_date,
+    #         'viewToDate': to_date,
+    #         'commTypeRadioButtons': 'commEqualTo',
+    #         'commissionAmount': '',
+    #         'threeDigitCarrierCode': '',
+    #         'selectedNumberOfResults': '500',
+    #         'list.x': '45',
+    #         'list.y': '11',
+    #         'printOption': '1',
+    #         'printaction': '0'
+    #     }
+    #
+    #     url = "https://iar2.arccorp.com/IAR/listTransactions.do"
+    #     data = urllib.urlencode(values)
+    #
+    #     headers = {
+    #         'Accept': self._accept,
+    #         'Accept-Encoding': 'gzip, deflate, br',
+    #         'Accept-Language': self._accept_language,
+    #         'Cache-Control': self._cache_control,
+    #         'Connection': self._connection,
+    #         'Content-Length': len(data),
+    #         'Content-Type': self._content_type,
+    #         'Host': 'iar2.arccorp.com',
+    #         'Origin': 'https://iar2.arccorp.com',
+    #         'Referer': 'https://iar2.arccorp.com/IAR/listTransactions.do?ped=' + ped + '&action=' + action + '&arcNumber=' + arcNumber + '',
+    #         'Upgrade-Insecure-Requests': self._upgrade_insecure_requests,
+    #         'User-Agent': self._user_agent
+    #     }
+    #     req = urllib2.Request(url, data, headers)
+    #     res = self.__try_request(req)
+    #     if res:
+    #         html = res.read()
+    #         self.__save_page("search", arcNumber, html)
+    #         return html
 
     def search_error(self, ped, action, arcNumber, token, from_date, to_date, page_index, is_next=False):
         self.logger.debug("SEARCH TICKET ERROR, NEXT: %s" % is_next)
@@ -698,15 +708,15 @@ class ArcModel:
         data = urllib.urlencode(values)
 
         headers = {
-            'Accept': self._accpet,
-            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept': self._accept,
+            'Accept-Encoding': self._accept_encoding,
             'Accept-Language': self._accept_language,
             'Cache-Control': self._cache_control,
             'Connection': self._connection,
             'Content-Length': len(data),
             'Content-Type': self._content_type,
-            'Host': 'iar2.arccorp.com',
-            'Origin': 'https://iar2.arccorp.com',
+            'Host': self._host,
+            'Origin': self._origin,
             'Referer': 'https://iar2.arccorp.com/IAR/listTransactions.do?ped=' + ped + '&action=' + action + '&arcNumber=' + arcNumber + '',
             'Upgrade-Insecure-Requests': self._upgrade_insecure_requests,
             'User-Agent': self._user_agent
@@ -727,11 +737,11 @@ class ArcModel:
         }
         data = urllib.urlencode(values)
         headers = {
-            'Accept': self._accpet,
+            'Accept': self._accept,
             'Accept-Encoding': 'gzip, deflate, sdch, br',
             'Accept-Language': self._accept_language,
             'Connection': self._connection,
-            'Host': 'iar2.arccorp.com',
+            'Host': self._host,
             'Referer': 'https://iar2.arccorp.com/IAR/listTransactions.do',
             'Upgrade-Insecure-Requests': self._upgrade_insecure_requests,
             'User-Agent': self._user_agent
@@ -796,15 +806,15 @@ class ArcModel:
 
         data = urllib.urlencode(values)
         headers = {
-            'Accept': self._accpet,
-            'Accept-Encoding': "gzip, deflate, br",
+            'Accept': self._accept,
+            'Accept-Encoding': self._accept_encoding,
             'Accept-Language': self._accept_language,
             'Cache-Control': self._cache_control,
             'Connection': self._connection,
             'Content-Length': len(data),
             'Content-Type': self._content_type,
-            'Host': "iar2.arccorp.com",
-            'Origin': "https://iar2.arccorp.com",
+            'Host': self._host,
+            'Origin': self._origin,
             'Referer': "https://iar2.arccorp.com/IAR/modifyTran.do?seqNum=" + seqNum + "&documentNumber=" + documentNumber,
             'Upgrade-Insecure-Requests': self._upgrade_insecure_requests,
             'User-Agent': self._user_agent
@@ -840,9 +850,9 @@ class ArcModel:
             'error22010': "true",
             'oldDocumentAirlineCodeFI': "",
             'oldDocumentNumberFI': "",
-            'maskedFC': maskedFC,
-            'ETButton.x': "47",
-            'ETButton.y': "7"
+            'maskedFC': maskedFC
+            # 'ETButton.x': "47",
+            # 'ETButton.y': "7"
         }
 
         if is_et_button:
@@ -853,13 +863,13 @@ class ArcModel:
 
         data = urllib.urlencode(values)
         headers = {
-            'Accept': self._accpet,
-            'Accept-Encoding': "gzip, deflate, br",
+            'Accept': self._accept,
+            'Accept-Encoding': self._accept_encoding,
             'Accept-Language': self._accept_language,
             'Connection': self._connection,
             'Content-Length': len(data),
             'Content-Type': self._content_type,
-            'Host': "iar2.arccorp.com",
+            'Host': self._host,
             'Referer': "https://iar2.arccorp.com/IAR/financialDetails.do",
             'Upgrade-Insecure-Requests': self._upgrade_insecure_requests,
             'User-Agent': self._user_agent
@@ -899,15 +909,15 @@ class ArcModel:
 
         data = urllib.urlencode(values)
         headers = {
-            'Accept': self._accpet,
-            'Accept-Encoding': "gzip, deflate, br",
+            'Accept': self._accept,
+            'Accept-Encoding': self._accept_encoding,
             'Accept-Language': self._accept_language,
             'Cache-Control': self._cache_control,
             'Connection': self._connection,
             'Content-Length': len(data),
             'Content-Type': self._content_type,
-            'Host': "iar2.arccorp.com",
-            'Origin': "https://iar2.arccorp.com",
+            'Host': self._host,
+            'Origin': self._origin,
             'Referer': "https://iar2.arccorp.com/IAR/financialDetails.do",
             'Upgrade-Insecure-Requests': self._upgrade_insecure_requests,
             'User-Agent': self._user_agent
@@ -931,17 +941,16 @@ class ArcModel:
         }
         data = urllib.urlencode(values)
         headers = {
-            'Accept': self._accpet,
-            'Accept-Encoding': "gzip, deflate, br",
+            'Accept': self._accept,
+            'Accept-Encoding': self._accept_encoding,
             'Accept-Language': self._accept_language,
             'Cache-Control': self._cache_control,
             'Connection': self._connection,
             'Content-Length': len(data),
             'Content-Type': self._content_type,
-            'Host': "iar2.arccorp.com",
-            'Origin': "https://iar2.arccorp.com",
+            'Host': self._host,
+            'Origin': self._origin,
             'Referer': "https://iar2.arccorp.com/IAR/itineraryEndorsements.do",
-            # 'Referer':"https://iar2.arccorp.com/IAR/financialDetails.do",
             'Upgrade-Insecure-Requests': self._upgrade_insecure_requests,
             'User-Agent': self._user_agent
         }
@@ -958,11 +967,11 @@ class ArcModel:
         self.logger.debug("IAR LOGOUT START")
         url = "https://iar2.arccorp.com/IAR/logout.do"
         headers = {
-            'Accept': self._accpet,
+            'Accept': self._accept,
             'Accept-Encoding': 'gzip, deflate, sdch',
             'Accept-Language': self._accept_language,
             'Connection': self._connection,
-            'Host': 'iar2.arccorp.com',
+            'Host': self._host,
             'Referer': 'https://iar2.arccorp.com/IAR/listTransactions.do?ped=' + ped + '&action=' + action + '&arcNumber=' + arcNumber,
             'Upgrade-Insecure-Requests': self._upgrade_insecure_requests,
             'User-Agent': self._user_agent
@@ -975,7 +984,7 @@ class ArcModel:
         # print 'Logout Start'
         self.logger.debug('LOGOUT START')
         headers = {
-            'Accept': self._accpet,
+            'Accept': self._accept,
             'Accept-Encoding': 'gzip, deflate, sdch, br',
             'Accept-Language': self._accept_language,
             'Connection': self._connection,
@@ -1094,7 +1103,7 @@ class ArcModel:
 class Regex:
     def __init__(self):
         self._pattern_token = re.compile(r'input type="hidden" name="org\.apache\.struts\.taglib\.html\.TOKEN" value="([\da-z]{32})"')
-        self._pattern_search = re.compile(r'<a href="/IAR/modifyTran\.do\?seqNum=(\d{10})&amp;documentNumber=(\d{10})">')
+        self._pattern_search = re.compile(r'<a href="/IAR/modifyTran\.do\?seqNum=(\d{10})&amp;documentNumber=(\d{10})"')
         self._pattern_masked = re.compile(
             r'<textarea name="maskedFC" cols="60" rows="5" readonly="readonly" class="disabled">(.+?)</textarea>')
         self._pattern_commission = re.compile(
@@ -1115,11 +1124,11 @@ class Regex:
         #               <td width="14%">(.*?)</td>''')
         self._pattern_tran_type = re.compile(r'''                      <td width="30%" height="24" class="contentboldtext" align="left">&nbsp;Tran Type:</td>
                       <td width="35%" class="contenttext">(.*?)</td>''')
-        self._pattern_modify_trans = re.compile(r'''        <td width="7%" align="center">(\d{3})</td>
+        self._pattern_modify_trans = re.compile(r'''<td width="7%" align="center">(\d{3})</td>
         <td width="11%" align="left">
         
         
-            <a href="/IAR/modifyTran\.do\?seqNum=(\d{10})&amp;documentNumber=(\d{10})">\d{10}</a>
+			<a href="/IAR/modifyTran\.do\?seqNum=(\d{10})&amp;documentNumber=(\d{10})".+?
             
                 
         
@@ -1137,18 +1146,7 @@ class Regex:
             if m:
                 return m.groups()
 
-    # def __public(self, pattern_text, html, is_findall=False):
-    #     pattern = re.compile(pattern_text)
-    #     if is_findall:
-    #         return pattern.findall(html)
-    #     else:
-    #         m = pattern.search(html)
-    #         if m:
-    #             return m.groups()
-
     def __token(self, html):
-        # pattern = r'input type="hidden" name="org\.apache\.struts\.taglib\.html\.TOKEN" value="([\da-z]{32})"'
-        # result = self.__public(pattern, html)
         result = self.__public(self._pattern_token, html)
         if result:
             return result[0]
@@ -1156,16 +1154,13 @@ class Regex:
     def iar(self, html, is_this_week=True):
         ped = action = arcNumber = None
         date_time = datetime.datetime.now()
-        date_week = date_time.weekday()
+        # date_week = date_time.weekday()
         date_ped = date_time + datetime.timedelta(days=(6 - date_time.weekday()))
 
-        # if date_week<2:
         if not is_this_week:
             date_ped = date_ped + datetime.timedelta(days=-7)
 
-        # from_date=(date_ped+datetime.timedelta(days = -6)).strftime('%d%b%y').upper()
         ped = date_ped.strftime('%d%b%y').upper()
-        # print ped
         pattern = re.compile(r'<a href="/IAR/listTransactions\.do;.+?ped=' + ped + '&amp;action=(\d)&amp;arcNumber=(\d{8})">')
         result = self.__public(pattern, html)
         if result:
@@ -1201,8 +1196,6 @@ class Regex:
         return token, from_date, to_date
 
     def search(self, html):
-        # pattern = re.compile(r'<a href="/IAR/modifyTran\.do\?seqNum=(\d{10})&amp;documentNumber=(\d{10})">')
-        # pattern = r'<a href="/IAR/modifyTran\.do\?seqNum=(\d{10})&amp;documentNumber=(\d{10})">'
         result = self.__public(self._pattern_search, html)
         if result:
             return result
@@ -1213,26 +1206,18 @@ class Regex:
         token = maskedFC = waiverCode = commission = None
         token = self.__token(html)
 
-        # pattern_masked = re.compile(
-        #     r'<textarea name="maskedFC" cols="60" rows="5" readonly="readonly" class="disabled">(.+?)</textarea>')
         masked_result = self.__public(self._pattern_masked, html)
         if masked_result:
             maskedFC = masked_result[0]
 
-        # pattern_commission = re.compile(
-        #     r'<input type="text" name="amountCommission" maxlength="10" size="15" value="(\d+\.\d{2}|\s?)" (disabled="disabled" )?class="contenttextright">')
         commission_result = self.__public(self._pattern_commission, html)
         if commission_result:
             commission = commission_result[0]
 
-        # pattern_waiverCode = re.compile(
-        #     r'<input name="waiverCode" maxlength="15" size="20" value="(.+?)" class="contenttext" type="text">')
         waiverCode_result = self.__public(self._pattern_waiver_code, html)
         if waiverCode_result:
             waiverCode = waiverCode_result[0]
 
-        # pattern_certificates = re.compile(
-        #     r'<input type="text" name="certificateItem\[(\d{1})\]\.value" maxlength="14" size="19" value="(.+?)" class="contenttext">')
         certificates_result = self.__public(self._pattern_certificates, html, True)
 
         return token, maskedFC, commission, waiverCode, certificates_result
@@ -1242,20 +1227,14 @@ class Regex:
 
         token = self.__token(html)
 
-        # pattern_tour_code = re.compile(
-        #     r'<input type="text" name="tourCode" maxlength="15" size="22" value="(.*?)" (disabled="disabled" )?class="contenttext">')
         tour_code_result = self.__public(self._pattern_tour_code, html)
         if tour_code_result:
             tour_code = tour_code_result[0]
 
-        # pattern_backOfficeRemarks = re.compile(
-        #     r'<input type="text" name="backOfficeRemarks" maxlength="49" size="70" value="(.*?)" (disabled="disabled" )?class="contenttext">')
         backOfficeRemarks_result = self.__public(self._pattern_backOfficeRemarks, html)
         if backOfficeRemarks_result:
             backOfficeRemarks = backOfficeRemarks_result[0]
 
-        # pattern_ticketDesignator = re.compile(
-        #     r'<input type="text" name="coupon\[(\d{1})\]\.ticketDesignator" maxlength="14" size="20" value="(.*?)" (disabled="disabled" )?class="contenttext">')
         ticketDesignator_result = self.__public(self._pattern_ticketDesignator, html, True)
         return token, tour_code, backOfficeRemarks, ticketDesignator_result
 
@@ -1364,44 +1343,6 @@ class MSSQL:
     #     self.conn.close()
 
 
-class SendEmail:
-    """docstring for SendEmail"""
-
-    def __init__(self, from_addr, to_addr, smtp_server, subject):
-        self.from_addr = from_addr
-        self.to_addr = to_addr
-        self.smtp_server = smtp_server
-        self.subject = subject
-
-    def __format_addr(self, s):
-        name, addr = parseaddr(s)
-        return formataddr(( \
-            Header(name, 'utf-8').encode(), \
-            addr.encode('utf-8') if isinstance(addr, unicode) else addr))
-
-    def send(self, body):
-        # msg = MIMEText(body, 'plain', 'utf-8')
-        msg = MIMEText(body, 'html', 'utf-8')
-        # msg['From'] = self.from_addr #self._format_addr('post<%s>' % from_addr)
-        msg['From'] = self.__format_addr('no-reply<%s>' % self.from_addr)
-        msg['To'] = ";".join(self.to_addr)
-        msg['Subject'] = Header(self.subject, 'utf-8').encode()
-
-        server = smtplib.SMTP(self.smtp_server, 25)
-        # server.set_debuglevel(1)
-        try:
-            # if not is_local:
-            # 	server.login(from_addr, password)
-            # else:
-            # 	print 'local'
-            server.sendmail(self.from_addr, self.to_addr, msg.as_string())
-        # print 'sent'
-        except Exception as e:
-            print e
-        finally:
-            server.quit()
-
-
 class Email:
     """docstring for SendEmail"""
 
@@ -1452,3 +1393,41 @@ class Email:
             print e
         finally:
             server.quit()
+
+
+# class SendEmail:
+#     """docstring for SendEmail"""
+#
+#     def __init__(self, from_addr, to_addr, smtp_server, subject):
+#         self.from_addr = from_addr
+#         self.to_addr = to_addr
+#         self.smtp_server = smtp_server
+#         self.subject = subject
+#
+#     def __format_addr(self, s):
+#         name, addr = parseaddr(s)
+#         return formataddr(( \
+#             Header(name, 'utf-8').encode(), \
+#             addr.encode('utf-8') if isinstance(addr, unicode) else addr))
+#
+#     def send(self, body):
+#         # msg = MIMEText(body, 'plain', 'utf-8')
+#         msg = MIMEText(body, 'html', 'utf-8')
+#         # msg['From'] = self.from_addr #self._format_addr('post<%s>' % from_addr)
+#         msg['From'] = self.__format_addr('no-reply<%s>' % self.from_addr)
+#         msg['To'] = ";".join(self.to_addr)
+#         msg['Subject'] = Header(self.subject, 'utf-8').encode()
+#
+#         server = smtplib.SMTP(self.smtp_server, 25)
+#         # server.set_debuglevel(1)
+#         try:
+#             # if not is_local:
+#             # 	server.login(from_addr, password)
+#             # else:
+#             # 	print 'local'
+#             server.sendmail(self.from_addr, self.to_addr, msg.as_string())
+#         # print 'sent'
+#         except Exception as e:
+#             print e
+#         finally:
+#             server.quit()

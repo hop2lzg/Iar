@@ -14,8 +14,12 @@ csv_lines = []
 
 def get_total(ped, action, arc_number, token, view_from_date, view_to_date, document_number,
                      date_type_radio_buttons):
-    search_html = arc_model.search(ped, action, arc_number, token, view_from_date, view_to_date, document_number,
-                     date_type_radio_buttons)
+    # search_html = arc_model.search(ped, action, arc_number, token, view_from_date, view_to_date, document_number,
+    #                  date_type_radio_buttons)
+
+    search_html = arc_model.create_list(token=token, ped=ped, action=action, arcNumber=arc_number,
+                                        viewFromDate=view_from_date, viewToDate=view_to_date,
+                                        documentNumber=document_number, dateTypeRadioButtons=date_type_radio_buttons)
 
     if not search_html:
         logger.warn("GO TO SEARCH ERROR.")
@@ -76,10 +80,17 @@ def run(section, user_name, today, is_this_week=True):
     date_type_radio_buttons = "entryDate"
     view_from_date = today
     view_to_date = today
-    create_list_html = arc_model.create_list(token, ped, action, arcNumber=arc_number, selectedStatusId="E",
-                                             selectedTransactionType="SA", selectedFormOfPayment="CA",
-                                             dateTypeRadioButtons="entryDate", viewFromDate=view_from_date,
-                                             viewToDate=view_to_date, selectedNumberOfResults="20")
+    # create_list_html = arc_model.create_list(token, ped, action, arcNumber=arc_number, selectedStatusId="E",
+    #                                          selectedTransactionType="SA", selectedFormOfPayment="CA",
+    #                                          dateTypeRadioButtons="entryDate", viewFromDate=view_from_date,
+    #                                          viewToDate=view_to_date, selectedNumberOfResults="20")
+
+    create_list_html = arc_model.create_list(token=token, ped=ped, action=action, arcNumber=arc_number,
+                                             viewFromDate=view_from_date, viewToDate=view_to_date, documentNumber="",
+                                             selectedStatusId=selected_status_id, selectedDocumentType="",
+                                             selectedTransactionType=selected_transaction_type,
+                                             selectedFormOfPayment=selected_form_of_payment,
+                                             dateTypeRadioButtons=date_type_radio_buttons, selectedNumberOfResults="20")
 
     token = arc_regex.get_token(create_list_html)
     if not token:
@@ -87,7 +98,8 @@ def run(section, user_name, today, is_this_week=True):
 
     csv_text = arc_model.get_csv(user_name, is_this_week, ped, action, arc_number, token, view_from_date, view_to_date,
                                  dateTypeRadioButtons=date_type_radio_buttons, selectedStatusId=selected_status_id,
-                                 selectedTransactionType=selected_transaction_type, selectedFormOfPayment=selected_form_of_payment)
+                                 selectedTransactionType=selected_transaction_type,
+                                 selectedFormOfPayment=selected_form_of_payment)
 
     if csv_text:
         lines = csv_text.split('\r\n')

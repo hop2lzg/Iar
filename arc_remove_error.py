@@ -108,11 +108,18 @@ def remove(today, weekday, ped, action, arc_number):
         if page > 0:
             is_next_page = True
 
-        create_list_html = arc_model.create_list(token, ped, action, arcNumber=arc_number, selectedStatusId="E",
+        # create_list_html = arc_model.create_list(token, ped, action, arcNumber=arc_number, selectedStatusId="E",
+        #                                          selectedTransactionType="", selectedFormOfPayment="",
+        #                                          dateTypeRadioButtons="ped", viewFromDate=from_date,
+        #                                          viewToDate=to_date, selectedNumberOfResults="500",
+        #                                          isNext=is_next_page, page=page)
+
+        create_list_html = arc_model.create_list(token, ped, action, arcNumber=arc_number, viewFromDate=from_date,
+                                                 viewToDate=to_date, documentNumber="", selectedStatusId="E",
                                                  selectedTransactionType="", selectedFormOfPayment="",
-                                                 dateTypeRadioButtons="ped", viewFromDate=from_date,
-                                                 viewToDate=to_date, selectedNumberOfResults="500",
-                                                 isNext=is_next_page, page=page)
+                                                 dateTypeRadioButtons="ped", selectedNumberOfResults="500",
+                                                 is_next=is_next_page, page=page)
+
         if not create_list_html:
             logger.error('GO TO CREATE LIST ERROR')
             break

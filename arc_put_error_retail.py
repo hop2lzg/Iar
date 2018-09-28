@@ -13,9 +13,10 @@ conf.read('../iar_update.conf')
 agent_codes = conf.get("certificate", "agentCodes").split(',')
 airline_exceptions = conf.get("retail", "airline_exceptions").split(',')
 retail_arc_numbers = conf.get("retail", "arcs").split(',')
+coi_arc_numbers = conf.get("retail", "coi").split(',')
 
 
-def execute(seqNum, documentNumber):
+def execute(seqNum, documentNumber, error_code):
     logger.debug("seqNum: %s, documentNumber: %s.", seqNum, documentNumber)
     result = {'void': 0, 'update': 0}
     modify_html = arc_model.modifyTran(seqNum, documentNumber)
@@ -41,7 +42,7 @@ def execute(seqNum, documentNumber):
         return
 
     financialDetails_html = arc_model.financialDetails(token, False, arc_commission, waiverCode, maskedFC,
-                                                       seqNum, documentNumber, "", "", certificates, "QC-RE",
+                                                       seqNum, documentNumber, "", "", certificates, error_code,
                                                        agent_codes, is_et_button=True)
     if not financialDetails_html:
         return
@@ -57,6 +58,60 @@ def execute(seqNum, documentNumber):
                 logger.warning('update may be error')
 
     return result
+
+
+def get_tickets(token, ped, action, arcNumber, viewFromDate, viewToDate, documentNumber, selectedStatusId,
+                selectedDocumentType, selectedTransactionType, selectedFormOfPayment, dateTypeRadioButtons,
+                selectedNumberOfResults):
+    tickets = []
+    for i in range(0, 10):
+        logger.debug("PAGE: %d.", i)
+        is_next_page = False
+        if i > 0:
+            is_next_page = True
+
+        create_list_html = arc_model.create_list(token, ped, action, arcNumber=arcNumber,
+                                                 viewFromDate=viewFromDate, viewToDate=viewToDate, documentNumber=documentNumber,
+                                                 selectedStatusId=selectedStatusId, selectedDocumentType=selectedDocumentType,
+                                                 selectedTransactionType=selectedTransactionType, selectedFormOfPayment=selectedFormOfPayment,
+                                                 dateTypeRadioButtons=dateTypeRadioButtons,
+                                                 selectedNumberOfResults=selectedNumberOfResults, is_next=is_next_page, page=i)
+
+        token = arc_regex.get_token(create_list_html)
+        if not token:
+            logger.error('GO TO CREATE LIST ERROR')
+            continue
+
+        modify_trans = arc_regex.modify_trans(create_list_html)
+        if modify_trans:
+            if arcNumber in retail_arc_numbers:
+                for modify_tran in modify_trans:
+                    if modify_tran[0] in airline_exceptions or modify_tran[3] == "EX":
+                        continue
+
+                    ticket = {"airline": modify_tran[0], "seqNum": modify_tran[1], "documentNumber": modify_tran[2],
+                              "transactionType": modify_tran[3], "result": 0}
+                    tickets.append(ticket)
+            elif arcNumber in coi_arc_numbers:
+                if selectedFormOfPayment == "CA":
+                    for modify_tran in modify_trans:
+                        ticket = {"airline": modify_tran[0], "seqNum": modify_tran[1], "documentNumber": modify_tran[2],
+                                  "transactionType": modify_tran[3], "result": 0}
+                        tickets.append(ticket)
+                elif selectedFormOfPayment == "CC":
+                    for modify_tran in modify_trans:
+                        if modify_tran[3] != "ET":
+                            continue
+                        ticket = {"airline": modify_tran[0], "seqNum": modify_tran[1], "documentNumber": modify_tran[2],
+                                  "transactionType": modify_tran[3], "result": 0}
+                        tickets.append(ticket)
+
+        if create_list_html and create_list_html.find('title="Next Page" alt="Next Page">') >= 0:
+            logger.debug("NEXT")
+        else:
+            break
+
+    return tickets
 
 
 def run(section, user_name, is_this_week=True):
@@ -92,47 +147,53 @@ def run(section, user_name, is_this_week=True):
         arc_model.logout()
         return
 
+    # today = (datetime.datetime.now() + datetime.timedelta(days=-1)).strftime('%d%b%y').upper()
     today = datetime.datetime.now().strftime('%d%b%y').upper()
+
     for retail_arc_number in retail_arc_numbers:
-        tickets = []
-        for i in range(0, 10):
-            logger.debug("PAGE: %d.", i)
-            isNextPage = False
-            if i > 0:
-                isNextPage = True
-
-            create_list_html = arc_model.create_list(token, ped, action, arcNumber=retail_arc_number, selectedStatusId="",
-                                                     selectedTransactionType="ET", selectedFormOfPayment="",
-                                                     dateTypeRadioButtons="entryDate", viewFromDate=today,
-                                                     viewToDate=today, selectedNumberOfResults="500",
-                                                     isNext=isNextPage, page=i)
-
-            token = arc_regex.get_token(create_list_html)
-            modity_trans = arc_regex.modify_trans(create_list_html)
-            if modity_trans:
-                for modity_tran in modity_trans:
-                    if modity_tran[0] in airline_exceptions or modity_tran[3] == "EX":
-                        continue
-
-                    ticket = {"airline": modity_tran[0], "seqNum": modity_tran[1], "documentNumber": modity_tran[2],
-                              "transactionType": modity_tran[3], "result": 0}
-                    tickets.append(ticket)
-
-            if create_list_html and create_list_html.find('title="Next Page" alt="Next Page">') >= 0:
-                logger.debug("NEXT")
-                # print "NEXT"
-            else:
-                break
-
+        tickets = get_tickets(token, ped=ped, action=action, arcNumber=retail_arc_number, viewFromDate=today, viewToDate=today,
+                              documentNumber="", selectedStatusId="", selectedDocumentType="", selectedTransactionType="ET",
+                              selectedFormOfPayment="", dateTypeRadioButtons="entryDate", selectedNumberOfResults="500")
+        # print tickets
         if tickets:
             for t in tickets:
-                result = execute(t['seqNum'], t['documentNumber'])
+                result = execute(t['seqNum'], t['documentNumber'], "QC-RE")
                 if result:
                     if result['void'] != 0:
                         t['result'] = result['void'] + 2
                     elif result['update'] != 0:
                         t['result'] = result['update']
             arc_model.store(tickets, retail_arc_number)
+        else:
+            logger.warn("%s NOT FOUND MODIFY TRANS!" % retail_arc_number)
+
+    for coi_arc_number in coi_arc_numbers:
+        coi_cash_tickets = get_tickets(token, ped=ped, action=action, arcNumber=coi_arc_number, viewFromDate=today,
+                              viewToDate=today,
+                              documentNumber="", selectedStatusId="", selectedDocumentType="",
+                              selectedTransactionType="ET",
+                              selectedFormOfPayment="CA", dateTypeRadioButtons="entryDate", selectedNumberOfResults="500")
+
+        # print coi_cash_tickets
+        coi_credit_tickets = get_tickets(token, ped=ped, action=action, arcNumber=coi_arc_number, viewFromDate=today,
+                              viewToDate=today,
+                              documentNumber="", selectedStatusId="", selectedDocumentType="",
+                              selectedTransactionType="ET",
+                              selectedFormOfPayment="CC", dateTypeRadioButtons="entryDate", selectedNumberOfResults="500")
+        # print coi_credit_tickets
+        coi_tickets = coi_cash_tickets + coi_credit_tickets
+        # print coi_tickets
+        if coi_tickets:
+            for t in coi_tickets:
+                result = execute(t['seqNum'], t['documentNumber'], "AT-ERROR")
+                if result:
+                    if result['void'] != 0:
+                        t['result'] = result['void'] + 2
+                    elif result['update'] != 0:
+                        t['result'] = result['update']
+            arc_model.store(coi_tickets, coi_arc_number)
+        else:
+            logger.warn("%s NOT FOUND MODIFY TRANS!" % coi_arc_number)
 
     arc_model.iar_logout(ped, action, arc_number)
     arc_model.logout()
@@ -141,4 +202,3 @@ try:
     run("geoff", "gttqc02", is_this_week=True)
 except Exception as ex:
     logger.fatal(ex)
-    # print ex
