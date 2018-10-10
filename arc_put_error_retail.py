@@ -95,6 +95,9 @@ def get_tickets(token, ped, action, arcNumber, viewFromDate, viewToDate, documen
             elif arcNumber in coi_arc_numbers:
                 if selectedFormOfPayment == "CA":
                     for modify_tran in modify_trans:
+                        if modify_tran[3] == "EX":
+                            continue
+
                         ticket = {"airline": modify_tran[0], "seqNum": modify_tran[1], "documentNumber": modify_tran[2],
                                   "transactionType": modify_tran[3], "result": 0}
                         tickets.append(ticket)
