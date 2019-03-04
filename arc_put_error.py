@@ -282,6 +282,7 @@ and (t.TicketType is null or t.TicketType<>'EX')
 and t.Comm=0
 and t.FareType in ('SR','BULK')
 and qc.OPStatus=14
+and (t.promoCode is null or t.promoCode='')
 and iar.isPutError=0
 and iar.AuditorStatus=0
 and t.Selling>0
