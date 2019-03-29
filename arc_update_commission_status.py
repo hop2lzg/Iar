@@ -71,6 +71,7 @@ def execute(post, action, token, from_date, to_date):
     arcNumber = post['ArcNumber']
     documentNumber = post['Ticket']
     date = post['IssueDate']
+    ticket_commission = post["Comm"]
     commission = post['QCComm']
     tour_code = ""
     if post['TourCode']:
@@ -94,7 +95,6 @@ def execute(post, action, token, from_date, to_date):
     date_time = datetime.datetime.strptime(date, '%Y-%m-%d')
     ped = (date_time + datetime.timedelta(days=(6 - date_time.weekday()))).strftime('%d%b%y').upper()
     logger.info("UPDATING PED: " + ped + " arc: " + arcNumber + " tkt: " + documentNumber)
-    # search_html = arc_model.search(ped, action, arcNumber, token, from_date, to_date, documentNumber)
     search_html = arc_model.create_list(token=token, ped=ped, action=action, arcNumber=arcNumber,
                                         viewFromDate=from_date, viewToDate=to_date, documentNumber=documentNumber)
     if not search_html:
@@ -131,6 +131,7 @@ def execute(post, action, token, from_date, to_date):
     logger.info("ARC commission: %s  updating commission: %s" % (arc_commission, commission))
     arc_commission_is_exception, arc_commission_float = convert_to_float(arc_commission)
     commission_is_exception, commission_float = convert_to_float(commission)
+    ticket_commission_is_exception, ticket_commission_float = convert_to_float(ticket_commission)
 
     is_exchange = False
     tran_type = arc_regex.tran_type(modify_html)
@@ -141,7 +142,10 @@ def execute(post, action, token, from_date, to_date):
     if is_exchange:
         agent_code = ""
 
-    if arc_commission_is_exception or commission_is_exception or (post['updatedByRole'] != "AG" and arc_commission_float > commission_float):
+    if arc_commission_is_exception or commission_is_exception or (post['updatedByRole'] != "AG"
+                                                                  and (arc_commission_float > commission_float
+                                                                       or (post['AGStatus'] == 0
+                                                                           and commission_float < ticket_commission_float))):
         if arc_commission_is_exception or commission_is_exception:
             agent_code = "QC-FAIL"
         elif post['AGStatus'] == 0:
@@ -154,7 +158,7 @@ def execute(post, action, token, from_date, to_date):
             logger.debug(modify_html)
             commission = arc_commission
         else:
-            commission = post["Comm"]
+            commission = ticket_commission
 
         post['isPutError'] = True
 
@@ -360,8 +364,6 @@ left join IarUpdate iar
 on t.Id=iar.TicketId
 where (qc.ARCupdated=0 or (qc.ARCupdated=1 and iar.IsUpdated=0 and iar.runTimes=0))
 and qc.AGStatus=3
---and qc.OPStatus<>2
---and (t.Comm<>qc.AGComm or t.TourCode<>qc.AGTourCode)
 and (iar.Commission is null or iar.Commission<>qc.AGComm or iar.TourCode<>qc.AGTourCode)
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
 and t.CreateDate>=@t
