@@ -338,6 +338,16 @@ or
 )
 and (iar.Id is null or iar.IsPutError=0)
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
+union
+select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-Cabin' ErrorCode,iar.Id iarId from Ticket t
+left join IarUpdate iar
+on t.Id=iar.TicketId
+where t.CreateDate>=@t and t.CreateDate<DATEADD(DAY,1,@t)
+and t.[Status] not like '[NV]%'
+and t.QCStatus=2 
+and t.QCMessage like 'Possible Cabin Abuse:%'
+and (iar.Id is null or iar.IsPutError=0)
+and (iar.AuditorStatus is null or iar.AuditorStatus=0)
 order by ArcNumber,Ticket
 ''')
 
