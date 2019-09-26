@@ -162,7 +162,7 @@ class ArcModel:
         is_login = False
         for tries in range(max_try_num):
             html = self.login(name, password)
-            if not html or (html.find('You are already logged into My ARC') < 0 and html.find('Account Settings:') < 0):
+            if not html or (html.find('You are already logged into My ARC') < 0 and html.find('Account Settings') < 0):
                 self.logger.error("LOGIN ERROR: %s, at %d times" % (name, tries))
                 time.sleep(1 * 60 * 3)
                 continue
