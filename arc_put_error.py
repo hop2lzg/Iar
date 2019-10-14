@@ -174,9 +174,11 @@ and (iar.AuditorStatus is null or iar.AuditorStatus=0)
     else:
         return
 
+    # print data
     ticket_rows = mssql.ExecQuery(ticket_sql)
+    logger.debug("QC-BROKEN: %s" % ticket_rows)
     if len(ticket_rows) > 0:
-        print ticket_rows
+        # print ticket_rows
         for ticket_row in ticket_rows:
             v = {}
             v['Id'] = ticket_row.Id
@@ -430,7 +432,7 @@ AT_error_sql = "select distinct AccountCode from dbo.T_Users where ATError=1"
 list_data_add(ms, list_data, get_account_codes(ms_44, AT_error_sql), "AT-ERROR", list_id)
 
 list_data_add(ms, list_data, ["ITTEST"], "QC-BROKE", list_id)
-
+logger.info("ALL DATA: %s" % list_data)
 def run(user_name, datas):
     # ----------------------login
     logger.debug(user_name)
