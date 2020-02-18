@@ -201,7 +201,10 @@ try:
         if ped_text and ped_text.upper() == "FALSE":
             is_this_week = False
 
-        run("geoff", "gttqc02", data, is_this_week)
+        section = "geoff"
+        for option in conf.options(section):
+            account_id = option
+            run(section, account_id, data, is_this_week)
 
     update_sql(data)
 

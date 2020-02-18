@@ -55,17 +55,17 @@ class ArcModel:
         if not is_this_week:
             file_path = "week"
 
-        if name == "mulingpeng" or name == "gttqc02" or name == "gttqc-it":
-            name = "all"
-
-        if name == "muling-yww":
-            name = "yww"
-
-        if name == "muling-tvo":
-            name = "tvo"
-
-        if name == "muling-aca":
-            name = "aca"
+        # if name == "mulingpeng" or name == "gttqc02" or name == "gttqc-it":
+        #     name = "all"
+        #
+        # if name == "muling-yww":
+        #     name = "yww"
+        #
+        # if name == "muling-tvo":
+        #     name = "tvo"
+        #
+        # if name == "muling-aca":
+        #     name = "aca"
 
         path = name + '\\' + file_path
         if not os.path.exists(path):

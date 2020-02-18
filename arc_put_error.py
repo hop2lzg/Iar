@@ -526,18 +526,16 @@ def insert(datas):
         logger.error('insert and update error')
 
 try:
-    section = "arc"
-    for option in conf.options(section):
-        logger.debug(option)
-        arc_numbers = conf.get(section, option).split(',')
+    for option in conf.options("login"):
+        account_id = option
+        logger.debug("ID: %s" % account_id)
+        arc_name = conf.get("idsToArcs", account_id)
+        logger.debug("ARC NAME: %s" % arc_name)
+        arc_numbers = conf.get("arc", arc_name).split(',')
         list_data_account = filter(lambda x: x['ArcNumber'] in arc_numbers, list_data)
         if not list_data_account:
             continue
-        account_id = "muling-"
-        if option == "all":
-            account_id = conf.get("accounts", "all")
-        else:
-            account_id = account_id + option
+
         run(account_id, list_data_account)
 except Exception as e:
     logger.critical(e)

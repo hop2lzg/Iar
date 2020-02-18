@@ -40,12 +40,12 @@ def execute(name, is_this_week):
         return
 
     try:
-        if name == conf.get("accounts", "all"):
-            conf_name = 'all'
-        else:
-            conf_name = name[-3:]
-
-        arc_numbers = conf.get("arc", conf_name).split(',')
+        # if name == conf.get("idsToArcs", name):
+        #     conf_name = 'all'
+        # else:
+        #     conf_name = name[-3:]
+        arc_name = conf.get("idsToArcs", name)
+        arc_numbers = conf.get("arc", arc_name).split(',')
         if arcNumber in arc_numbers:
             arc_number_index = arc_numbers.index(arcNumber)
             arc_numbers[arc_number_index] = arc_numbers[0]
@@ -59,7 +59,7 @@ def execute(name, is_this_week):
             token, from_date, to_date = arc_regex.listTransactions(list_transactions_html)
             if not token:
                 continue
-            arc_model.get_csv(name, is_this_week, ped, action, arc_number, token, from_date, to_date)
+            arc_model.get_csv(arc_name, is_this_week, ped, action, arc_number, token, from_date, to_date)
             time.sleep(3)
     except Exception, ex:
         logger.critical(ex)

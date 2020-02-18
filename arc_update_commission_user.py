@@ -395,10 +395,10 @@ for i in rows:
     list_data.append(v)
 
 
-def run(user_name, datas):
+def run(section, user_name, datas):
     # ----------------------login
     logger.debug(user_name)
-    password = conf.get("geoff", user_name)
+    password = conf.get(section, user_name)
     if not arc_model.execute_login(user_name, password):
         return
 
@@ -443,20 +443,31 @@ def run(user_name, datas):
 
 
 try:
-    section = "arc"
+    section = "geoff"
     for option in conf.options(section):
-        logger.debug(option)
-        arc_numbers = conf.get(section, option).split(',')
+        account_id = option
+        arc_name = conf.get("idsToArcs", account_id)
+        arc_numbers = conf.get("arc", arc_name).split(',')
         list_data_account = filter(lambda x: x['ArcNumber'] in arc_numbers, list_data)
         if not list_data_account:
             continue
-        account_id = "gttqc02"
-        if option == "all":
-            account_id = "gttqc02"
-        else:
-            break
-            # account_id = account_id + option
-        run(account_id, list_data_account)
+
+        run(section, account_id, list_data_account)
+
+    # section = "arc"
+    # for option in conf.options(section):
+    #     logger.debug(option)
+    #     arc_numbers = conf.get(section, option).split(',')
+    #     list_data_account = filter(lambda x: x['ArcNumber'] in arc_numbers, list_data)
+    #     if not list_data_account:
+    #         continue
+    #     account_id = "gttqc02"
+    #     if option == "all":
+    #         account_id = "gttqc02"
+    #     else:
+    #         break
+    #         # account_id = account_id + option
+    #     run(account_id, list_data_account)
 except Exception as e:
     logger.critical(e)
 finally:

@@ -202,6 +202,8 @@ def run(section, user_name, is_this_week=True):
     arc_model.logout()
 
 try:
-    run("geoff", "gttqc02", is_this_week=True)
+    section = "geoff"
+    for option in conf.options(section):
+        run(section, option, is_this_week=True)
 except Exception as ex:
     logger.fatal(ex)

@@ -128,12 +128,12 @@ def execute(name, is_this_week, csv_lines, is_first_arc_number):
         return
 
     try:
-        if name == "gttqc02":
-            conf_name = 'all'
-        else:
-            conf_name = name[-3:]
-
-        arc_numbers = conf.get("arc", conf_name).split(',')
+        # if name == "gttqc02":
+        #     conf_name = 'all'
+        # else:
+        #     conf_name = name[-3:]
+        arc_name = conf.get("idsToArcs", name)
+        arc_numbers = conf.get("arc", arc_name).split(',')
         if arcNumber in arc_numbers:
             arc_number_index = arc_numbers.index(arcNumber)
             arc_numbers[arc_number_index] = arc_numbers[0]
@@ -165,7 +165,7 @@ def execute(name, is_this_week, csv_lines, is_first_arc_number):
 
             if not token:
                 continue
-            csv_text = arc_model.get_csv(name, is_this_week, ped, action, arc_number, token, from_date, to_date,
+            csv_text = arc_model.get_csv(arc_name, is_this_week, ped, action, arc_number, token, from_date, to_date,
                                          selectedTransactionType="SA", selectedFormOfPayment="CA", tick=tick)
 
             if csv_text:

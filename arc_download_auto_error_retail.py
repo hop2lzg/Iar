@@ -96,7 +96,7 @@ def run(section, user_name, today, is_this_week=True):
     if not token:
         logger.error('CREATE LIST REGEX ERROR.')
 
-    csv_text = arc_model.get_csv(user_name, is_this_week, ped, action, arc_number, token, view_from_date, view_to_date,
+    csv_text = arc_model.get_csv(conf.get("idsToArcs", user_name), is_this_week, ped, action, arc_number, token, view_from_date, view_to_date,
                                  dateTypeRadioButtons=date_type_radio_buttons, selectedStatusId=selected_status_id,
                                  selectedTransactionType=selected_transaction_type,
                                  selectedFormOfPayment=selected_form_of_payment)
@@ -133,7 +133,10 @@ try:
     if week == 0:
         now = now + datetime.timedelta(days=(-1))
         is_this_week = False
-    run("geoff", "gttqc02", now.strftime('%d%b%y').upper(), is_this_week=is_this_week)
+
+    section = "geoff"
+    for option in conf.options(section):
+        run(section, option, now.strftime('%d%b%y').upper(), is_this_week=is_this_week)
 
 except Exception as ex:
     logger.fatal(ex)

@@ -170,16 +170,24 @@ try:
     # from_date=(date_ped+datetime.timedelta(days = -6)).strftime('%d%b%y').upper()
     ped = date_ped.strftime('%d%b%y').upper()
     action = "7"
-    section = "arc"
+
+    section = "geoff"
     for option in conf.options(section):
         logger.debug(option)
-        arc_numbers = conf.get(section, option).split(',')
-        account_id = "muling-"
-        if option == "all":
-            account_id = "gttqc02"
-        else:
-            continue
-        run("geoff", account_id, arc_numbers, ped, action)
+        account_id = option
+        arc_name = conf.get("idsToArcs", account_id)
+        arc_numbers = conf.get("arc", arc_name).split(',')
+        run(section, account_id, arc_numbers, ped, action)
+    # section = "arc"
+    # for option in conf.options(section):
+    #     logger.debug(option)
+    #     arc_numbers = conf.get(section, option).split(',')
+    #     account_id = "muling-"
+    #     if option == "all":
+    #         account_id = "gttqc02"
+    #     else:
+    #         continue
+    #     run("geoff", account_id, arc_numbers, ped, action)
 except Exception as e:
     logger.critical(e)
 

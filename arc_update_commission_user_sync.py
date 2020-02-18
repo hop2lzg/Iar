@@ -274,32 +274,49 @@ for i in rows:
 # logger.debug(list_data)
 
 try:
-    section = "arc"
-    for option in conf.options(section):
-        logger.debug(option)
-        arc_numbers = conf.get(section, option).split(',')
+    sectionsToOptions = []
+    sections = ["geoff", "login"]
+    for section in sections:
+        for option in conf.options(section):
+            if section == "login" and conf.get("idsToArcs", option) == "all":
+                continue
+            sectionsToOptions.append({"section": section, "option": option})
+
+    for item in sectionsToOptions:
+        arc_name = conf.get("idsToArcs", item["option"])
+        arc_numbers = conf.get("arc", arc_name).split(',')
         logger.debug("arc numbers conf: %s" % arc_numbers)
         list_data_account = filter(lambda x: x['ArcNumber'] in arc_numbers, list_data)
-        # logger.debug("lambda: %s" % list_data_account)
         if not list_data_account:
             continue
 
-        account_id = ""
-        login_section = ""
-        if option == "all":
-            account_id = "gttqc02"
-            login_section = "geoff"
-        elif option == "aca":
-            account_id = "muling-aca"
-            login_section = "login"
-        elif option == "yww":
-            account_id = "muling-yww"
-            login_section = "login"
-        elif option == "tvo":
-            account_id = "muling-tvo"
-            login_section = "login"
-
-        run(login_section, account_id, list_data_account)
+        run(item["section"], item["option"], list_data_account)
+    # section = "arc"
+    # for option in conf.options(section):
+    #     logger.debug(option)
+    #     arc_numbers = conf.get(section, option).split(',')
+    #     logger.debug("arc numbers conf: %s" % arc_numbers)
+    #     list_data_account = filter(lambda x: x['ArcNumber'] in arc_numbers, list_data)
+    #     # logger.debug("lambda: %s" % list_data_account)
+    #     if not list_data_account:
+    #         continue
+    #
+    #     account_id = ""
+    #     login_section = ""
+    #     if option == "all":
+    #         account_id = "gttqc02"
+    #         login_section = "geoff"
+    #     elif option == "aca":
+    #         account_id = "muling-aca"
+    #         login_section = "login"
+    #     elif option == "yww":
+    #         account_id = "muling-yww"
+    #         login_section = "login"
+    #     elif option == "tvo":
+    #         account_id = "muling-tvo"
+    #         login_section = "login"
+    #
+    #     run(login_section, account_id, list_data_account)
 except Exception as e:
     logger.critical(e)
 finally:
