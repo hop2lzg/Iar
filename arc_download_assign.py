@@ -225,7 +225,6 @@ date_week = date_time.weekday()
 tick = date_time.strftime('%Y%m%d%H%M%S')
 csv_lines = []
 is_first_arc_number = True
-
 HOST = conf.get("socket", "host")
 PORT = int(conf.get("socket", "port"))
 

@@ -1136,6 +1136,23 @@ class Regex:
         <td width="4%" align="right" >(.*?) 
         </td>''')
         self._pattern_total = re.compile(r'<input type="text" name="amountTotal" maxlength="12" size="15" value="(.*?)"')
+        self._pattern_void = re.compile(r'''<table width="100%" cellspacing="0" cellpadding="0" class="tablelistborder" border ="0">
+       
+      <tr class="row\d"> 
+        <td width="3%" align="center"> \d+ 
+        </td>
+        <td width="6%" align="center"> 
+		<input type="checkbox" name="checkBoxes" value='.*?'  /> 
+		</td>
+        <td width="2%" align="center">(.*?)</td>
+        <td width="7%" align="center">\d{3}</td>
+        <td width="11%" align="left">
+        
+        
+			<a href="/IAR/modifyTran''')
+
+        self._pattern_form_of_payment = re.compile(r'<input type="text" name="maskedFormOfPayment".+?value="(.*?)"')
+        self._pattern_certificate_item = re.compile(r'<input type="text" name="certificateItem\[\d\]\.value".+?value="(.*?)"')
         # pass
 
     def __public(self, pattern, html, is_findall=False):
@@ -1291,6 +1308,20 @@ class Regex:
                 status = 2
 
         return status
+
+    def get_status(self, html):
+        groups = self.__public(self._pattern_void, html)
+        if groups:
+            return groups[0]
+
+    def get_form_of_payment(self, html):
+        groups = self.__public(self._pattern_form_of_payment, html)
+        # print groups
+        if groups:
+            return groups[0]
+
+    def get_certificate_items(self, html):
+        return self.__public(self._pattern_certificate_item, html, True)
 
 
 class MSSQL:
