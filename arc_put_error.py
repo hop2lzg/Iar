@@ -93,6 +93,7 @@ def get_account_codes(mssql, account_code_sql):
 
         return account_codes
 
+
 def list_data_add(mssql, data, account_codes, error_code, list_id):
     if not account_codes:
         return
@@ -385,6 +386,16 @@ left join IarUpdate iar
 on t.Id=iar.TicketId
 where t.IssueDate=@t
 and t.AccountCode='TITPCC'
+and (TicketNumber like '[0-9][0-9][0-9]7%' or TicketNumber like '[0-9][0-9][0-9]86%')
+and (iar.Id is null or iar.IsPutError=0)
+and (iar.AuditorStatus is null or iar.AuditorStatus=0)
+union
+select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-ERROR' ErrorCode,iar.Id iarId from Ticket t
+left join IarUpdate iar
+on t.Id=iar.TicketId
+where IssueDate>='2020-03-27'
+and agentSign='WS'
+and ArcNumber='23534803'
 and (TicketNumber like '[0-9][0-9][0-9]7%' or TicketNumber like '[0-9][0-9][0-9]86%')
 and (iar.Id is null or iar.IsPutError=0)
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)

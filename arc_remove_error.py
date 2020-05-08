@@ -172,17 +172,6 @@ try:
         logger.debug("ARC NAME: %s" % arc_name)
         arc_numbers = conf.get("arc", arc_name).split(',')
         run(account_id, arc_numbers, ped, action)
-    #
-    # section = "arc"
-    # for option in conf.options(section):
-    #     logger.debug(option)
-    #     arc_numbers = conf.get(section, option).split(',')
-    #     account_id = "muling-"
-    #     if option == "all":
-    #         account_id = conf.get("accounts", "all")
-    #     else:
-    #         account_id = account_id + option
-    #     run(account_id, arc_numbers, ped, action)
 except Exception as e:
     logger.critical(e)
 

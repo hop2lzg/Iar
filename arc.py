@@ -55,24 +55,24 @@ class ArcModel:
         if not is_this_week:
             file_path = "week"
 
-        # if name == "mulingpeng" or name == "gttqc02" or name == "gttqc-it":
-        #     name = "all"
-        #
-        # if name == "muling-yww":
-        #     name = "yww"
-        #
-        # if name == "muling-tvo":
-        #     name = "tvo"
-        #
-        # if name == "muling-aca":
-        #     name = "aca"
-
         path = name + '\\' + file_path
         if not os.path.exists(path):
             os.makedirs(path)
 
-        with open(path + '\\' + fileName, 'wb') as f:
-            f.write(content)
+        # with open(path + '\\' + fileName, 'wb') as f:
+        #     f.write(content)
+
+        fileFullPath = path + '\\' + fileName
+
+        try:
+            with open(fileFullPath, 'wb') as f:
+                f.write(content)
+        except OSError:
+            time.sleep(3)
+            if os.path.exists(fileFullPath):
+                os.remove(fileFullPath)
+            with open(fileFullPath, 'wb') as f:
+                f.write(content)
 
     def __try_request(self, req, max_try_num=2):
         res = None
@@ -1151,7 +1151,7 @@ class Regex:
         
 			<a href="/IAR/modifyTran''')
 
-        self._pattern_form_of_payment = re.compile(r'<input type="text" name="maskedFormOfPayment".+?value="(.*?)"')
+        self._pattern_form_of_payment = re.compile(r'<input type="text" name=".+?FormOfPayment".+?value="(.*?)"', re.IGNORECASE)
         self._pattern_certificate_item = re.compile(r'<input type="text" name="certificateItem\[\d\]\.value".+?value="(.*?)"')
         # pass
 

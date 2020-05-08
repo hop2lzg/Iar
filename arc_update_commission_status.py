@@ -58,8 +58,8 @@ def run(user_name, datas):
             if data['Status'] != 0 and data['Status'] != 3:
                 continue
             execute(data, action, token, from_date, to_date)
-            # if data['Status'] == 1 or data['Status'] == 3 or data['Status'] == 4:
-            #     check(data, action, token, from_date, to_date)
+            if data['Status'] == 1 or data['Status'] == 3 or data['Status'] == 4:
+                check(data, action, token, from_date, to_date)
     except Exception as ex:
         logger.critical(ex)
 
@@ -164,40 +164,40 @@ def execute(post, action, token, from_date, to_date):
 
     post['errorCode'] = agent_code
 
-    # financialDetails_html = arc_model.financialDetails(token, is_check_payment, commission, waiverCode, maskedFC, seqNum,
-    #                                                    documentNumber, tour_code, qc_tour_code, certificates, agent_code,
-    #                                                    agent_codes, is_et_button, is_check_update=False)
-    # if not financialDetails_html:
-    #     return
+    financialDetails_html = arc_model.financialDetails(token, is_check_payment, commission, waiverCode, maskedFC, seqNum,
+                                                       documentNumber, tour_code, qc_tour_code, certificates, agent_code,
+                                                       agent_codes, is_et_button, is_check_update=False)
+    if not financialDetails_html:
+        return
 
-    # if not is_et_button:
-    #     token, arc_tour_code, backOfficeRemarks, ticketDesignators = arc_regex.financialDetails(financialDetails_html)
-    #     if not token:
-    #         return
-    #
-    #     post['ArcTourCode'] = arc_tour_code
-    #     if ticketDesignators:
-    #         list_ticketDesignator = []
-    #         for ticketDesignator in ticketDesignators:
-    #             list_ticketDesignator.append(ticketDesignator[1])
-    #         post['TicketDesignator'] = '/'.join(list_ticketDesignator)
-    #
-    #     if not is_et_button:
-    #         itineraryEndorsements_html = arc_model.itineraryEndorsements(token, qc_tour_code, backOfficeRemarks,
-    #                                                                      ticketDesignators)
-    #         if not itineraryEndorsements_html:
-    #             return
-    #         token = arc_regex.itineraryEndorsements(itineraryEndorsements_html)
-    # else:
-    #     token = arc_regex.itineraryEndorsements(financialDetails_html)
-    #
-    # if token:
-    #     transactionConfirmation_html = arc_model.transactionConfirmation(token)
-    #     if transactionConfirmation_html:
-    #         if transactionConfirmation_html.find('Document has been modified') >= 0:
-    #             post['Status'] = 1
-    #         else:
-    #             logger.warning('update may be error')
+    if not is_et_button:
+        token, arc_tour_code, backOfficeRemarks, ticketDesignators = arc_regex.financialDetails(financialDetails_html)
+        if not token:
+            return
+
+        post['ArcTourCode'] = arc_tour_code
+        if ticketDesignators:
+            list_ticketDesignator = []
+            for ticketDesignator in ticketDesignators:
+                list_ticketDesignator.append(ticketDesignator[1])
+            post['TicketDesignator'] = '/'.join(list_ticketDesignator)
+
+        if not is_et_button:
+            itineraryEndorsements_html = arc_model.itineraryEndorsements(token, qc_tour_code, backOfficeRemarks,
+                                                                         ticketDesignators)
+            if not itineraryEndorsements_html:
+                return
+            token = arc_regex.itineraryEndorsements(itineraryEndorsements_html)
+    else:
+        token = arc_regex.itineraryEndorsements(financialDetails_html)
+
+    if token:
+        transactionConfirmation_html = arc_model.transactionConfirmation(token)
+        if transactionConfirmation_html:
+            if transactionConfirmation_html.find('Document has been modified') >= 0:
+                post['Status'] = 1
+            else:
+                logger.warning('update may be error')
 
 
 def check(post, action, token, from_date, to_date):
@@ -279,10 +279,10 @@ def update(datas):
     if ids:
         update_sql = "update TicketQC set ARCupdated=1 where Id in (%s)" % ','.join(ids)
         logger.debug(update_sql)
-        # if ms.ExecNonQuery(update_sql) > 0:
-        #     logger.info('update sql success')
-        # else:
-        #     logger.error('update sql error')
+        if ms.ExecNonQuery(update_sql) > 0:
+            logger.info('update sql success')
+        else:
+            logger.error('update sql error')
 
 
 def insert(datas):
@@ -326,14 +326,14 @@ def insert(datas):
         return
 
     logger.info("".join(sqls))
-    # rowcount = ms.ExecNonQuerys(sqls)
-    # if rowcount != len(sqls):
-    #     logger.warn("update:%s, updated:%s" % (len(sqls), rowcount))
-    #
-    # if rowcount > 0:
-    #     logger.info('insert success')
-    # else:
-    #     logger.error('insert error')
+    rowcount = ms.ExecNonQuerys(sqls)
+    if rowcount != len(sqls):
+        logger.warn("update:%s, updated:%s" % (len(sqls), rowcount))
+
+    if rowcount > 0:
+        logger.info('insert success')
+    else:
+        logger.error('insert error')
 
 
 arc_model = arc.ArcModel("arc update commission by status")
@@ -368,6 +368,37 @@ and (iar.Commission is null or iar.Commission<>qc.AGComm or iar.TourCode<>qc.AGT
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
 and t.CreateDate>=@t
 and ISNULL(qc.AGDate,'1900-1-1') >= ISNULL(qc.OPDate,'1900-1-1')
+union
+select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
+t.Comm,t.TourCode,qc.OPComm UpdateComm,qc.OPTourCode UpdateTourCode,qc.OPUser,qc.OPLastUser,t.FareType,qc.AGStatus,
+'OP' updatedByRole,iar.Id IarId from Ticket t
+left join TicketQC qc
+on t.Id=qc.TicketId
+left join IarUpdate iar
+on t.Id=iar.TicketId
+where (qc.ARCupdated=0 or (qc.ARCupdated=1 and iar.IsUpdated=0 and iar.runTimes=0))
+and qc.OPStatus=2
+and (qc.AGStatus<>3 or (qc.AGStatus=3 and ISNULL(qc.OPDate,'1900-1-1') >= ISNULL(qc.AGDate,'1900-1-1')))
+and (t.Comm<>qc.OPComm or t.TourCode<>qc.OPTourCode)
+and (iar.Commission is null or iar.Commission<>qc.OPComm or ISNULL(iar.TourCode,'')<>ISNULL(qc.OPTourCode,''))
+and (iar.AuditorStatus is null or iar.AuditorStatus=0)
+and t.CreateDate>=@t
+union
+select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
+t.Comm,t.TourCode,qc.OPComm UpdateComm,qc.OPTourCode UpdateTourCode,qc.OPUser,qc.OPLastUser,t.FareType,qc.AGStatus,
+'OPA' updatedByRole,iar.Id IarId from Ticket t
+left join TicketQC qc
+on t.Id=qc.TicketId
+left join IarUpdate iar
+on t.Id=iar.TicketId
+where (qc.ARCupdated=0 or (qc.ARCupdated=1 and iar.IsUpdated=0 and iar.runTimes=0))
+and qc.OPStatus in (1, 15)
+and qc.OPComm is not null
+and (qc.AGStatus<>3 or (qc.AGStatus=3 and ISNULL(qc.OPDate,'1900-1-1') >= ISNULL(qc.AGDate,'1900-1-1')))
+and (qc.OPComm<> t.Comm or ISNULL(qc.OPTourCode,'')<>ISNULL(t.TourCode,''))
+and (iar.Commission is null or iar.Commission<>qc.OPComm or ISNULL(iar.TourCode,'')<>ISNULL(qc.OPTourCode,''))
+and (iar.AuditorStatus is null or iar.AuditorStatus=0)
+and t.CreateDate>=@t
 order by IssueDate
 ''')
 

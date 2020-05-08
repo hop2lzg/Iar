@@ -352,7 +352,6 @@ and (iar.AuditorStatus is null or iar.AuditorStatus=0)
 and (iar.Commission is null or iar.Commission<>qc.OPComm or ISNULL(iar.TourCode,'')<>ISNULL(qc.OPTourCode,''))''' + op_users_sql + '''
 and t.IssueDate>=@start
 and t.IssueDate<@end
-order by IssueDate
 ''')
 
 rows = ms.ExecQuery(sql)
