@@ -65,14 +65,24 @@ class ArcModel:
         fileFullPath = path + '\\' + fileName
 
         try:
+            self.logger.debug("START WRITE FILE: %s" % fileFullPath)
             with open(fileFullPath, 'wb') as f:
                 f.write(content)
-        except OSError:
+            self.logger.debug("HAS BEEN SUCCESSFULLY WRITTEN FILE: %s" % fileFullPath)
+        except OSError as e:
+            self.logger.warn(e)
             time.sleep(3)
             if os.path.exists(fileFullPath):
+                self.logger.debug("exist")
                 os.remove(fileFullPath)
+                self.logger.debug("removed")
+            else:
+                self.logger.debug("no exist")
+
             with open(fileFullPath, 'wb') as f:
                 f.write(content)
+
+            self.logger.debug("WRITTEN SUCCESSFUL")
 
     def __try_request(self, req, max_try_num=2):
         res = None
