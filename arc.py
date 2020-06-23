@@ -1387,14 +1387,17 @@ class MSSQL:
 class Email:
     """docstring for SendEmail"""
 
-    def __init__(self, is_local=True, smtp_server=None, user=None, password=None):
+    def __init__(self, is_local=True, smtp_server=None, smtp_port=25, is_enable_ssl=False, user=None, password=None):
         # self.from_addr=from_addr
         # self.to_addr=to_addr
+        self.is_local = is_local
         self.smtp_server = smtp_server
+        self.smtp_port = smtp_port
+        self.is_enable_ssl = is_enable_ssl
         self.user = user
         self.password = password
         # self.subject=subject
-        self.is_local = is_local
+
 
     def __format_addr(self, s):
         name, addr = parseaddr(s)
@@ -1417,58 +1420,24 @@ class Email:
             encoders.encode_base64(part)
             part.add_header('Content-Disposition', 'attachment; filename="%s"' % os.path.basename(f))
             msg.attach(part)
-        server = smtplib.SMTP()
+
+        # server = smtplib.SMTP()
         # server.set_debuglevel(1)
-        try:
-            server.connect(self.smtp_server, 25)
-            # server = smtplib.SMTP(self.smtp_server, 25)
+        # server.connect(self.smtp_server, 25)
+        if self.is_local:
+            if self.is_enable_ssl:
+                server = smtplib.SMTP_SSL('localhost')
+            else:
+                server = smtplib.SMTP('localhost')
+        else:
+            if self.is_enable_ssl:
+                server = smtplib.SMTP_SSL(self.smtp_server, self.smtp_port)
+            else:
+                server = smtplib.SMTP(self.smtp_server, self.smtp_port)
+                # server.ehlo()
+                # server = smtplib.SMTP()
+                # server.connect(self.smtp_server, self.smtp_port)
 
-            if not self.is_local:
-                # print 'remote'
-                server.login(self.user, self.password)
-            # else:
-            # 	print 'local'
-            server.sendmail(from_addr, to_addr, msg.as_string())
-        # print 'sent'
-        except Exception as e:
-            print e
-        finally:
-            server.quit()
-
-
-# class SendEmail:
-#     """docstring for SendEmail"""
-#
-#     def __init__(self, from_addr, to_addr, smtp_server, subject):
-#         self.from_addr = from_addr
-#         self.to_addr = to_addr
-#         self.smtp_server = smtp_server
-#         self.subject = subject
-#
-#     def __format_addr(self, s):
-#         name, addr = parseaddr(s)
-#         return formataddr(( \
-#             Header(name, 'utf-8').encode(), \
-#             addr.encode('utf-8') if isinstance(addr, unicode) else addr))
-#
-#     def send(self, body):
-#         # msg = MIMEText(body, 'plain', 'utf-8')
-#         msg = MIMEText(body, 'html', 'utf-8')
-#         # msg['From'] = self.from_addr #self._format_addr('post<%s>' % from_addr)
-#         msg['From'] = self.__format_addr('no-reply<%s>' % self.from_addr)
-#         msg['To'] = ";".join(self.to_addr)
-#         msg['Subject'] = Header(self.subject, 'utf-8').encode()
-#
-#         server = smtplib.SMTP(self.smtp_server, 25)
-#         # server.set_debuglevel(1)
-#         try:
-#             # if not is_local:
-#             # 	server.login(from_addr, password)
-#             # else:
-#             # 	print 'local'
-#             server.sendmail(self.from_addr, self.to_addr, msg.as_string())
-#         # print 'sent'
-#         except Exception as e:
-#             print e
-#         finally:
-#             server.quit()
+        server.login(self.user, self.password)
+        server.sendmail(from_addr, to_addr, msg.as_string())
+        server.quit()

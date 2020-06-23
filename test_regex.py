@@ -9,35 +9,18 @@ def read_file(file_name):
 
 
 def regex(html):
-    pattern = re.compile(r'''        <td width="7%" align="center">(\d{3})</td>
-        <td width="11%" align="left">
-        
-        
-            <a href="/IAR/modifyTran\.do\?seqNum=(\d{10})&amp;documentNumber=(\d{10})">\d{10}</a>
-            
-                
-        
-		</td>
-        <td width="4%" align="right" >(.*?) 
-        </td>''')
-
-    return pattern.findall(html)
-
-# arc_regex = arc.Regex()
-#
-# html = read_file('html/modifyTran_modifyTran.html')
-# print arc_regex.get_total(html)[0]
+    pattern = re.compile(r'<input type="text" name=".+?FormOfPayment".+?value="(.*?)"', re.IGNORECASE)
+    m = pattern.search(html)
+    print m.group(1)
+    # return pattern.findall(html)
 
 
-conf = ConfigParser.ConfigParser()
-conf.read('../iar_update.conf')
-section = "arc"
-for option in conf.options(section):
-    arc_numbers = conf.get(section, option).split(',')
-    account_id = "muling-"
-    if option == "all":
-        account_id = conf.get("accounts", "all")
-    else:
-        account_id = account_id + option
+arc_regex = arc.Regex()
 
-    print account_id
+html = read_file('html/listTransactions1.do')
+# print html
+print arc_regex.modify_trans(html)
+
+# regex(html)
+# groups = regex(html)
+# print groups[0]

@@ -14,3 +14,5 @@ if __name__ == "__main__":
     print str.upper()
     values = {"a":"123","b":"wer"}
     print values["b"].upper()
+    test()
+    print "OVER"
