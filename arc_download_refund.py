@@ -2,6 +2,7 @@ import time, datetime
 import ConfigParser
 import arc
 # import thread
+import sys
 import threading
 
 
@@ -28,6 +29,8 @@ def execute(name, is_this_week):
     if not arc_model.execute_login(name, password):
         return
 
+    date_time = datetime.datetime.now().strftime('%d%b%y').upper()
+
     iar_html = arc_model.iar()
     if not iar_html:
         logger.error('open iar error: '+name)
@@ -40,10 +43,6 @@ def execute(name, is_this_week):
         return
 
     try:
-        # if name == conf.get("idsToArcs", name):
-        #     conf_name = 'all'
-        # else:
-        #     conf_name = name[-3:]
         arc_name = conf.get("idsToArcs", name)
         arc_numbers = conf.get("arc", arc_name).split(',')
         if arcNumber in arc_numbers:
@@ -59,8 +58,31 @@ def execute(name, is_this_week):
             token, from_date, to_date = arc_regex.listTransactions(list_transactions_html)
             if not token:
                 continue
-            arc_model.get_csv(arc_name, is_this_week, ped, action, arc_number, token, viewFromDate="22JUN20", viewToDate="22JUN20",
-                              selectedTransactionType="WV")
+            csv_text = arc_model.get_csv(arc_name, is_this_week, ped, action, arc_number, token, viewFromDate=date_time, viewToDate=date_time,
+                              dateTypeRadioButtons="entryDate", selectedTransactionType="WV")
+
+            if csv_text:
+                lines = csv_text.split('\r\n')
+                for line in lines:
+                    if line:
+                        if lines.index(line) == 0:
+                            csv_lines.append("ARC," + line)
+                        else:
+                            cells = line.split(',')
+                            if len(cells) == 0:
+                                continue
+
+                            carrier = cells[1]
+                            document_number = cells[2]
+
+                            if not carrier and not document_number:
+                                continue
+
+                            csv_lines.append(arc_number + "," + line)
+                            iars.append({"status": cells[0], "carrier": carrier, "documentNumber": document_number,
+                                        "ticketType": cells[3], "FOP": cells[4], "total": cells[5], "comm": cells[6],
+                                        "i": cells[7], "net": cells[8], "entryDate": cells[9], "windowDate": cells[10],
+                                        "voidDate": cells[11], "esac": cells[12]})
             time.sleep(3)
             break
     except Exception, ex:
@@ -82,7 +104,6 @@ def thread_set(is_this_week):
         thread.start()
         threads.append(thread)
         break
-
     for t in threads:
         t.join()
 
@@ -93,19 +114,209 @@ arc_model = arc.ArcModel("arc download")
 arc_regex = arc.Regex()
 logger = arc_model.logger
 logger.debug("<<<<<<<<<<<<<<<<<<<<<START>>>>>>>>>>>>>>>>>>>>>")
-thread_lock = threading.Lock()
-date_time = datetime.datetime.now()
-date_week = date_time.weekday()
-if date_week != 0:
-    print 'this week'
-    thread_set(True)
+sql_server = conf.get("sqlRefund", "server")
+sql_database = conf.get("sqlRefund", "database")
+sql_user = conf.get("sqlRefund", "user")
+sql_pwd = conf.get("sqlRefund", "pwd")
+ms = arc.MSSQL(server=sql_server, db=sql_database, user=sql_user, pwd=sql_pwd)
+sql = ('''
+declare @start date
+declare @end date
+set @start = DATEADD(day,-1,getdate())
+set @end = GETDATE()
+select Branch,TicketNumber,PaymentType,GdsStatus,IARStatus,WaiverCode,CreateDate from TicketRefund
+where WaiverCode<>'' 
+and CreateDate>=@start
+and CreateDate<@end
+''')
 
-# if date_week == 0 or date_week == 1 or date_week == 2:
-#     print 'last week'
-#     timer_sleep = 0
-#     if date_week == 1 or date_week == 2:
-#         timer_sleep = 1*60*20
-#     timer = threading.Timer(timer_sleep, thread_set, [False])
-#     timer.start()
+rows = ms.ExecQuery(sql)
+if len(rows) == 0:
+    logger.warn("NO DATA")
+    sys.exit(0)
+
+
+thread_lock = threading.Lock()
+csv_lines = []
+iars = []
+# date_time = datetime.datetime.now()
+# date_week = date_time.weekday()
+thread_set(True)
+
+
+def export_refund(rows, folder, file_name):
+    if not arc.os.path.exists(folder):
+        arc.os.makedirs(folder)
+    # book = Workbook()
+    # sheet1 = book.active
+    # sheet1['A1'] = 'This is A1'
+    # sheet1.title = 'sheet1'
+    # sheet2 = book.create_sheet(title='sheet2')
+    wb = arc.Workbook()
+    sheet = wb.active
+    sheet['A1'] = 'Branch'
+    sheet['B1'] = 'TKT.#'
+    sheet['C1'] = 'GDS Status'
+    sheet['D1'] = 'IAR Status'
+    sheet['E1'] = 'Payment Type'
+    sheet['F1'] = 'Waiver Code'
+    sheet['G1'] = 'Date'
+
+    row_index = 2
+    for r in rows:
+        sheet.cell(row=row_index, column=1).value = r.Branch
+        sheet.cell(row=row_index, column=2).value = r.TicketNumber
+        sheet.cell(row=row_index, column=3).value = r.GdsStatus
+        sheet.cell(row=row_index, column=4).value = r.IARStatus
+        payment_type = ""
+        if r.PaymentType == "C":
+            payment_type = "CC"
+        elif r.PaymentType == "K":
+            payment_type = "CK"
+
+        sheet.cell(row=row_index, column=5).value = payment_type
+        sheet.cell(row=row_index, column=6).value = r.WaiverCode
+        sheet.cell(row=row_index, column=7).value = r.CreateDate
+        row_index += 1
+
+    wb.save(filename=folder + "/" + file_name)
+
+
+def export_csv(csv_lines, folder, file_name):
+    body = "\r\n".join(csv_lines)
+    arc_model.csv_write(folder, file_name, body)
+
+
+def export_vs(rows, iars, folder, file_name):
+    if not arc.os.path.exists(folder):
+        arc.os.makedirs(folder)
+
+    wb = arc.Workbook()
+    sheet = wb.active
+    sheet['A1'] = 'Branch'
+    sheet['B1'] = 'TKT.#'
+    sheet['C1'] = 'GDS Status'
+    sheet['D1'] = 'IAR Status'
+    sheet['E1'] = 'Payment Type'
+    sheet['F1'] = 'Waiver Code'
+    sheet['G1'] = 'Date'
+    sheet['H1'] = 'Result'
+    sheet['I1'] = 'Remark'
+    sheet['J1'] = 'STATUS'
+    sheet['K1'] = 'CARRIER'
+    sheet['L1'] = 'DOCUMENT #'
+    sheet['M1'] = 'TT'
+    sheet['N1'] = 'FOP'
+    sheet['O1'] = 'TOTAL'
+    sheet['P1'] = 'COMM'
+    sheet['Q1'] = 'NET'
+    sheet['R1'] = 'ENTRY DATE'
+
+    row_index = 2
+    for r in rows:
+        sheet.cell(row=row_index, column=1).value = r.Branch
+        sheet.cell(row=row_index, column=2).value = r.TicketNumber
+        sheet.cell(row=row_index, column=3).value = r.GdsStatus
+        sheet.cell(row=row_index, column=4).value = r.IARStatus
+        payment_type = ""
+        if r.PaymentType == "C":
+            payment_type = "CC"
+        elif r.PaymentType == "K":
+            payment_type = "CK"
+
+        sheet.cell(row=row_index, column=5).value = payment_type
+        sheet.cell(row=row_index, column=6).value = r.WaiverCode
+        sheet.cell(row=row_index, column=7).value = r.CreateDate
+        iar = get_iar(r.TicketNumber)
+        if not iar:
+            sheet.cell(row=row_index, column=8).value = "NOT FOUND"
+        else:
+            sheet.cell(row=row_index, column=9).value = "FOUND"
+            sheet.cell(row=row_index, column=10).value = iar["status"]
+            sheet.cell(row=row_index, column=11).value = iar["carrier"]
+            sheet.cell(row=row_index, column=12).value = iar["documentNumber"]
+            sheet.cell(row=row_index, column=13).value = iar["ticketType"]
+            sheet.cell(row=row_index, column=14).value = iar["FOP"]
+            sheet.cell(row=row_index, column=15).value = iar["total"]
+            sheet.cell(row=row_index, column=16).value = iar["comm"]
+            sheet.cell(row=row_index, column=17).value = iar["net"]
+            sheet.cell(row=row_index, column=18).value = iar["entryDate"]
+
+                            # iars.append({"status": cells[0], "carrier": carrier, "documentNumber": document_number,
+                            #             "ticketType": cells[3], "FOP": cells[4], "total": cells[5], "comm": cells[6],
+                            #             "i": cells[7], "net": cells[8], "entryDate": cells[9], "windowDate": cells[10],
+                            #             "voidDate": cells[11], "esac": cells[12]})
+
+
+        row_index += 1
+
+    wb.save(filename=folder + "/" + file_name)
+
+
+def get_iar(ticket_number):
+    for iar in iars:
+        if iar["carrier"] + iar["documentNumber"] == ticket_number[0:13]:
+            return  iar
+
+    return None
+
+# export excel (data)
+folder = "file"
+refund_file_name = datetime.datetime.now().strftime('refund-%Y%m%d.xlsx')
+csv_file_name = datetime.datetime.now().strftime('iar-%Y%m%d.csv')
+vs_file_name = datetime.datetime.now().strftime('vs-%Y%m%d.xlsx')
+is_write_refund = False
+is_write_csv = False
+is_write_vs = False
+try:
+    export_refund(rows, folder, refund_file_name)
+    is_write_refund = True
+except Exception as e:
+    logger.critical(e)
+
+try:
+    if csv_lines:
+        export_csv(csv_lines, folder, csv_file_name)
+        is_write_csv = True
+except Exception as ex:
+    logger.critical(ex)
+
+try:
+    export_vs(rows, iars, folder, vs_file_name)
+    is_write_vs = True
+except Exception as ex:
+    logger.critical(ex)
+
+
+mail_is_local = conf.get("email", "is_local").lower() == "true"
+mail_smtp_server = conf.get("email", "smtp_server")
+mail_smtp_port = conf.get("email", "smtp_port")
+mail_is_enable_ssl = conf.get("email", "is_enable_ssl").lower() == "true"
+mail_user = conf.get("email", "user")
+mail_password = conf.get("email", "password")
+mail_from_addr = conf.get("email", "from")
+mail_to_addr = conf.get("email", "to_iar_refund_vs").split(';')
+mail_subject = conf.get("email", "subject_iar_refund_vs")
+
+
+try:
+    body = 'Please check this attachments'
+    mail = arc.Email(is_local=mail_is_local, smtp_server=mail_smtp_server, smtp_port=mail_smtp_port, is_enable_ssl=mail_is_enable_ssl,
+                     user=mail_user, password=mail_password)
+
+    files = []
+    if is_write_refund:
+        files.append("file/" + refund_file_name)
+
+    if is_write_csv:
+        files.append("file/" + csv_file_name)
+
+    if is_write_vs:
+        files.append("file/" + vs_file_name)
+
+    mail.send(mail_from_addr, mail_to_addr, mail_subject, body, is_html=True, files=files)
+    logger.info('email sent')
+except Exception as e:
+    logger.critical(e)
 
 logger.debug("<<<<<<<<<<<<<<<<<<<<<END>>>>>>>>>>>>>>>>>>>>>")

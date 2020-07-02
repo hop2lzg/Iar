@@ -354,57 +354,6 @@ class ArcModel:
         else:
             self.logger.warning('Download csv error :' + arcNumber)
 
-    # def search(self, ped, action, arcNumber, token, from_date, to_date, documentNumber, dateTypeRadioButtons='ped'):
-    #     self.logger.debug("SEARCH TICKET: %s" % documentNumber)
-    #     values = {
-    #         'org.apache.struts.taglib.html.TOKEN': token,
-    #         'arcNumber': arcNumber,
-    #         'ped': ped,
-    #         'selectedStatusId': '',
-    #         'documentNumber': documentNumber,
-    #         'docNumberEnd': documentNumber,
-    #         'selectedDocumentType': '',
-    #         'selectedTransactionType': '',
-    #         'selectedFormOfPayment': '',
-    #         'selectedInternationalIndicator': '',
-    #         'systemProvider': '',
-    #         'dateTypeRadioButtons': dateTypeRadioButtons,
-    #         'viewFromDate': from_date,
-    #         'viewToDate': to_date,
-    #         'commTypeRadioButtons': 'commEqualTo',
-    #         'commissionAmount': '',
-    #         'threeDigitCarrierCode': '',
-    #         'selectedNumberOfResults': '20',
-    #         'list.x': '45',
-    #         'list.y': '11',
-    #         'printOption': '1',
-    #         'printaction': '0'
-    #     }
-    #
-    #     url = "https://iar2.arccorp.com/IAR/listTransactions.do"
-    #     data = urllib.urlencode(values)
-    #
-    #     headers = {
-    #         'Accept': self._accept,
-    #         'Accept-Encoding': 'gzip, deflate, br',
-    #         'Accept-Language': self._accept_language,
-    #         'Cache-Control': self._cache_control,
-    #         'Connection': self._connection,
-    #         'Content-Length': len(data),
-    #         'Content-Type': self._content_type,
-    #         'Host': 'iar2.arccorp.com',
-    #         'Origin': 'https://iar2.arccorp.com',
-    #         'Referer': 'https://iar2.arccorp.com/IAR/listTransactions.do?ped=' + ped + '&action=' + action + '&arcNumber=' + arcNumber + '',
-    #         'Upgrade-Insecure-Requests': self._upgrade_insecure_requests,
-    #         'User-Agent': self._user_agent
-    #     }
-    #     req = urllib2.Request(url, data, headers)
-    #     res = self.__try_request(req)
-    #     if res:
-    #         html = res.read()
-    #         self.__save_page("search", "search", html)
-    #         return html
-
     def add_old_document(self, token, oldDocumentAirlineCodeFI, oldDocumentNumberFI, seqNum, documentNumber, amountCommission,
                          waiverCode, certificateItems, maskedFC):
         self.logger.debug("ADD OLD DOCUMENT, AIR: %s, DOC NUM: %s, SEQ: %s, TKT: %s." % (oldDocumentAirlineCodeFI,
@@ -1405,7 +1354,7 @@ class Email:
             Header(name, 'utf-8').encode(), \
             addr.encode('utf-8') if isinstance(addr, unicode) else addr))
 
-    def send(self, from_addr, to_addr, subject, body, files=[]):
+    def send(self, from_addr, to_addr, subject, body, is_html=False, files=[]):
         # msg = MIMEText(body, 'plain', 'utf-8')
         # msg = MIMEText(body, 'html', 'utf-8')
         msg = MIMEMultipart()
@@ -1413,7 +1362,10 @@ class Email:
         msg['From'] = self.__format_addr('no-reply<%s>' % from_addr)
         msg['To'] = ";".join(to_addr)
         msg['Subject'] = Header(subject, 'utf-8').encode()
-        msg.attach(MIMEText(body, 'html', 'utf-8'))
+        subtype = 'plain'
+        if is_html:
+            subtype = 'html'
+        msg.attach(MIMEText(body, subtype, 'utf-8'))
         for f in files:
             part = MIMEBase('application', "octet-stream")
             part.set_payload(open(f, "rb").read())
