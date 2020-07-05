@@ -84,7 +84,7 @@ def execute(name, is_this_week):
                                         "i": cells[7], "net": cells[8], "entryDate": cells[9], "windowDate": cells[10],
                                         "voidDate": cells[11], "esac": cells[12]})
             time.sleep(3)
-            break
+            # break
     except Exception, ex:
         logger.critical(ex)
     finally:
@@ -103,7 +103,7 @@ def thread_set(is_this_week):
         thread = MyThread(option, is_this_week)
         thread.start()
         threads.append(thread)
-        break
+        # break
     for t in threads:
         t.join()
 
@@ -124,7 +124,7 @@ declare @start date
 declare @end date
 set @start = DATEADD(day,-1,getdate())
 set @end = GETDATE()
-select Branch,TicketNumber,PaymentType,GdsStatus,IARStatus,WaiverCode,CreateDate from TicketRefund
+select Branch,PCC,TicketNumber,PaymentType,GdsStatus,IARStatus,WaiverCode,CreateDate from TicketRefund
 where WaiverCode<>'' 
 and CreateDate>=@start
 and CreateDate<@end
@@ -135,6 +135,18 @@ if len(rows) == 0:
     logger.warn("NO DATA")
     sys.exit(0)
 
+sql_server_ticketFDA = conf.get("sqlTicketFDA", "server")
+sql_database_ticketFDA = conf.get("sqlTicketFDA", "database")
+sql_user_ticketFDA = conf.get("sqlTicketFDA", "user")
+sql_pwd_ticketFDA = conf.get("sqlTicketFDA", "pwd")
+ms_ticketFDA = arc.MSSQL(server=sql_server_ticketFDA, db=sql_database_ticketFDA, user=sql_user_ticketFDA, pwd=sql_pwd_ticketFDA)
+sql_ticketFDA = ('''
+select BranchCode,IataNumber,WorldspanSID,SabreSID,AmaduesSID AmadeusSID,ApolloSID,GalileoSID from Branch
+where IsDelete=0
+''')
+
+branchs = ms_ticketFDA.ExecQuery(sql_ticketFDA)
+
 
 thread_lock = threading.Lock()
 csv_lines = []
@@ -143,8 +155,20 @@ iars = []
 # date_week = date_time.weekday()
 thread_set(True)
 
+def get_arc_number(branchs, branchCode, pcc):
+    if branchs:
+        for branch in branchs:
+            if branch.WorldspanSID == pcc or branch.SabreSID == pcc or branch.AmadeusSID == pcc or branch.ApolloSID == pcc or branch.GalileoSID == pcc:
+                return branch.IataNumber
 
-def export_refund(rows, folder, file_name):
+        for branch in branchs:
+            if branch.BranchCode == branchCode:
+                return branch.IataNumber
+
+    return ""
+
+
+def export_refund(rows, folder, file_name, branchs):
     if not arc.os.path.exists(folder):
         arc.os.makedirs(folder)
     # book = Workbook()
@@ -155,28 +179,30 @@ def export_refund(rows, folder, file_name):
     wb = arc.Workbook()
     sheet = wb.active
     sheet['A1'] = 'Branch'
-    sheet['B1'] = 'TKT.#'
-    sheet['C1'] = 'GDS Status'
-    sheet['D1'] = 'IAR Status'
-    sheet['E1'] = 'Payment Type'
-    sheet['F1'] = 'Waiver Code'
-    sheet['G1'] = 'Date'
+    sheet['B1'] = 'ARC #'
+    sheet['C1'] = 'TKT.#'
+    sheet['D1'] = 'GDS Status'
+    sheet['E1'] = 'IAR Status'
+    sheet['F1'] = 'Payment Type'
+    sheet['G1'] = 'Waiver Code'
+    sheet['H1'] = 'Date'
 
     row_index = 2
     for r in rows:
         sheet.cell(row=row_index, column=1).value = r.Branch
-        sheet.cell(row=row_index, column=2).value = r.TicketNumber
-        sheet.cell(row=row_index, column=3).value = r.GdsStatus
-        sheet.cell(row=row_index, column=4).value = r.IARStatus
+        sheet.cell(row=row_index, column=2).value = get_arc_number(branchs, r.Branch, r.PCC)
+        sheet.cell(row=row_index, column=3).value = r.TicketNumber[0:13]
+        sheet.cell(row=row_index, column=4).value = r.GdsStatus
+        sheet.cell(row=row_index, column=5).value = r.IARStatus
         payment_type = ""
         if r.PaymentType == "C":
             payment_type = "CC"
         elif r.PaymentType == "K":
             payment_type = "CK"
 
-        sheet.cell(row=row_index, column=5).value = payment_type
-        sheet.cell(row=row_index, column=6).value = r.WaiverCode
-        sheet.cell(row=row_index, column=7).value = r.CreateDate
+        sheet.cell(row=row_index, column=6).value = payment_type
+        sheet.cell(row=row_index, column=7).value = r.WaiverCode
+        sheet.cell(row=row_index, column=8).value = r.CreateDate
         row_index += 1
 
     wb.save(filename=folder + "/" + file_name)
@@ -187,60 +213,62 @@ def export_csv(csv_lines, folder, file_name):
     arc_model.csv_write(folder, file_name, body)
 
 
-def export_vs(rows, iars, folder, file_name):
+def export_vs(rows, iars, folder, file_name, branchs):
     if not arc.os.path.exists(folder):
         arc.os.makedirs(folder)
 
     wb = arc.Workbook()
     sheet = wb.active
     sheet['A1'] = 'Branch'
-    sheet['B1'] = 'TKT.#'
-    sheet['C1'] = 'GDS Status'
-    sheet['D1'] = 'IAR Status'
-    sheet['E1'] = 'Payment Type'
-    sheet['F1'] = 'Waiver Code'
-    sheet['G1'] = 'Date'
-    sheet['H1'] = 'Result'
-    sheet['I1'] = 'Remark'
-    sheet['J1'] = 'STATUS'
-    sheet['K1'] = 'CARRIER'
-    sheet['L1'] = 'DOCUMENT #'
-    sheet['M1'] = 'TT'
-    sheet['N1'] = 'FOP'
-    sheet['O1'] = 'TOTAL'
-    sheet['P1'] = 'COMM'
-    sheet['Q1'] = 'NET'
-    sheet['R1'] = 'ENTRY DATE'
+    sheet['B1'] = 'ARC #'
+    sheet['C1'] = 'TKT.#'
+    sheet['D1'] = 'GDS Status'
+    sheet['E1'] = 'IAR Status'
+    sheet['F1'] = 'Payment Type'
+    sheet['G1'] = 'Waiver Code'
+    sheet['H1'] = 'Date'
+    sheet['I1'] = 'Result'
+    sheet['J1'] = 'Remark'
+    sheet['K1'] = 'STATUS'
+    sheet['L1'] = 'CARRIER'
+    sheet['M1'] = 'DOCUMENT #'
+    sheet['N1'] = 'TT'
+    sheet['O1'] = 'FOP'
+    sheet['P1'] = 'TOTAL'
+    sheet['Q1'] = 'COMM'
+    sheet['R1'] = 'NET'
+    sheet['S1'] = 'ENTRY DATE'
 
     row_index = 2
     for r in rows:
         sheet.cell(row=row_index, column=1).value = r.Branch
-        sheet.cell(row=row_index, column=2).value = r.TicketNumber
-        sheet.cell(row=row_index, column=3).value = r.GdsStatus
-        sheet.cell(row=row_index, column=4).value = r.IARStatus
+        sheet.cell(row=row_index, column=2).value = get_arc_number(branchs, r.Branch, r.PCC)
+        sheet.cell(row=row_index, column=3).value = r.TicketNumber[0:13]
+        sheet.cell(row=row_index, column=4).value = r.GdsStatus
+        sheet.cell(row=row_index, column=5).value = r.IARStatus
         payment_type = ""
         if r.PaymentType == "C":
             payment_type = "CC"
         elif r.PaymentType == "K":
             payment_type = "CK"
 
-        sheet.cell(row=row_index, column=5).value = payment_type
-        sheet.cell(row=row_index, column=6).value = r.WaiverCode
-        sheet.cell(row=row_index, column=7).value = r.CreateDate
+        sheet.cell(row=row_index, column=6).value = payment_type
+        sheet.cell(row=row_index, column=7).value = r.WaiverCode
+        sheet.cell(row=row_index, column=8).value = r.CreateDate
         iar = get_iar(r.TicketNumber)
         if not iar:
-            sheet.cell(row=row_index, column=8).value = "NOT FOUND"
+            sheet.cell(row=row_index, column=9).value = "NOT FOUND"
         else:
-            sheet.cell(row=row_index, column=9).value = "FOUND"
-            sheet.cell(row=row_index, column=10).value = iar["status"]
-            sheet.cell(row=row_index, column=11).value = iar["carrier"]
-            sheet.cell(row=row_index, column=12).value = iar["documentNumber"]
-            sheet.cell(row=row_index, column=13).value = iar["ticketType"]
-            sheet.cell(row=row_index, column=14).value = iar["FOP"]
-            sheet.cell(row=row_index, column=15).value = iar["total"]
-            sheet.cell(row=row_index, column=16).value = iar["comm"]
-            sheet.cell(row=row_index, column=17).value = iar["net"]
-            sheet.cell(row=row_index, column=18).value = iar["entryDate"]
+            sheet.cell(row=row_index, column=10).value = "FOUND"
+            sheet.cell(row=row_index, column=11).value = iar["status"]
+            sheet.cell(row=row_index, column=12).value = iar["carrier"]
+            sheet.cell(row=row_index, column=13).value = iar["documentNumber"]
+            sheet.cell(row=row_index, column=14).value = iar["ticketType"]
+            sheet.cell(row=row_index, column=15).value = iar["FOP"]
+            sheet.cell(row=row_index, column=16).value = iar["total"]
+            sheet.cell(row=row_index, column=17).value = iar["comm"]
+            sheet.cell(row=row_index, column=18).value = iar["net"]
+            sheet.cell(row=row_index, column=19).value = iar["entryDate"]
 
                             # iars.append({"status": cells[0], "carrier": carrier, "documentNumber": document_number,
                             #             "ticketType": cells[3], "FOP": cells[4], "total": cells[5], "comm": cells[6],
@@ -269,7 +297,7 @@ is_write_refund = False
 is_write_csv = False
 is_write_vs = False
 try:
-    export_refund(rows, folder, refund_file_name)
+    export_refund(rows, folder, refund_file_name, branchs)
     is_write_refund = True
 except Exception as e:
     logger.critical(e)
@@ -282,7 +310,7 @@ except Exception as ex:
     logger.critical(ex)
 
 try:
-    export_vs(rows, iars, folder, vs_file_name)
+    export_vs(rows, iars, folder, vs_file_name, branchs)
     is_write_vs = True
 except Exception as ex:
     logger.critical(ex)
