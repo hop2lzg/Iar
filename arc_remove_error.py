@@ -175,7 +175,12 @@ try:
 except Exception as e:
     logger.critical(e)
 
+mail_is_local = conf.get("email", "is_local").lower() == "true"
 mail_smtp_server = conf.get("email", "smtp_server")
+mail_smtp_port = conf.get("email", "smtp_port")
+mail_is_enable_ssl = conf.get("email", "is_enable_ssl").lower() == "true"
+mail_user = conf.get("email", "user")
+mail_password = conf.get("email", "password")
 mail_from_addr = conf.get("email", "from")
 mail_to_addr = conf.get("email", "to_remove_error").split(';')
 mail_subject = conf.get("email", "subject") + " remove error"
@@ -201,8 +206,10 @@ try:
     </thead>
     <tbody>%s</tbody>
     </table>''' % body
-    mail = arc.Email(smtp_server=mail_smtp_server)
-    mail.send(mail_from_addr, mail_to_addr, mail_subject, body)
+    mail = arc.Email(is_local=mail_is_local, smtp_server=mail_smtp_server, smtp_port=mail_smtp_port,
+                     is_enable_ssl=mail_is_enable_ssl,
+                     user=mail_user, password=mail_password)
+    mail.send(mail_from_addr, mail_to_addr, mail_subject, body, is_html=True)
 except Exception as e:
     logger.critical(e)
 

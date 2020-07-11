@@ -142,7 +142,12 @@ except Exception as ex:
     logger.fatal(ex)
 
 if csv_lines:
+    mail_is_local = conf.get("email", "is_local").lower() == "true"
     mail_smtp_server = conf.get("email", "smtp_server")
+    mail_smtp_port = conf.get("email", "smtp_port")
+    mail_is_enable_ssl = conf.get("email", "is_enable_ssl").lower() == "true"
+    mail_user = conf.get("email", "user")
+    mail_password = conf.get("email", "password")
     mail_from_addr = conf.get("email", "from")
     mail_to_addr = conf.get("email", "to_arc_download_auto_error_retail").split(';')
     mail_subject = 'IAR DOWNLOAD AUTO ERROR RETAIL'
@@ -151,7 +156,9 @@ if csv_lines:
         folder = "csv"
         file_name = "auto_error_retail.csv"
         arc_model.csv_write(folder, file_name, body)
-        mail = arc.Email(smtp_server=mail_smtp_server)
+        mail = arc.Email(is_local=mail_is_local, smtp_server=mail_smtp_server, smtp_port=mail_smtp_port,
+                         is_enable_ssl=mail_is_enable_ssl,
+                         user=mail_user, password=mail_password)
         mail.send(mail_from_addr, mail_to_addr, mail_subject, "Please check the attachment.", [folder + "/" + file_name])
         logger.debug("sent email")
     except Exception as ex:

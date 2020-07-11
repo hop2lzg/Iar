@@ -197,13 +197,19 @@ sql_user = conf.get("sql", "user")
 sql_pwd = conf.get("sql", "pwd")
 ms = arc.MSSQL(server=sql_server, db=sql_database, user=sql_user, pwd=sql_pwd)
 
+mail_is_local = conf.get("email", "is_local").lower() == "true"
 mail_smtp_server = conf.get("email", "smtp_server")
+mail_smtp_port = conf.get("email", "smtp_port")
+mail_is_enable_ssl = conf.get("email", "is_enable_ssl").lower() == "true"
+mail_user = conf.get("email", "user")
+mail_password = conf.get("email", "password")
 mail_from_addr = conf.get("email", "from")
 mail_to_addr = conf.get("email", "to_update_user_sync").split(';')
 mail_subject = conf.get("email", "subject") + " by user sync"
 
 
-mail = arc.Email(smtp_server=mail_smtp_server)
+mail = arc.Email(is_local=mail_is_local, smtp_server=mail_smtp_server, smtp_port=mail_smtp_port, is_enable_ssl=mail_is_enable_ssl,
+                     user=mail_user, password=mail_password)
 
 sql = ('''
 declare @start date
