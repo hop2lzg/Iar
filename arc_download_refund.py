@@ -397,10 +397,11 @@ def export_vs(iars, rows_list, folder, file_name):
         sheet.cell(row=row_index, column=10).value = iar["entryDate"]
         if not refund:
             sheet.cell(row=row_index, column=11).value = "NOT FOUND"
+            sheet.cell(row=row_index, column=12).value = "Refund only on IAR"
         else:
             sheet.cell(row=row_index, column=11).value = "FOUND"
             if refund.WaiverCode:
-                sheet.cell(row=row_index, column=12).value = "UNMATCH"
+                sheet.cell(row=row_index, column=12).value = "Waiver Code missing from IAR"
             sheet.cell(row=row_index, column=13).value = refund.Branch
             sheet.cell(row=row_index, column=14).value = refund.TicketNumber[0:13]
             sheet.cell(row=row_index, column=15).value = refund.GdsStatus
