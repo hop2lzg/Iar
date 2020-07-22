@@ -11,8 +11,9 @@ import json
 
 
 class MyThread(threading.Thread):
-    def __init__(self, name, tickets, is_this_week):
+    def __init__(self, section, name, tickets, is_this_week):
         threading.Thread.__init__(self)
+        self.section = section
         self.name = name
         self.tickets = tickets
         self.is_this_week = is_this_week
@@ -20,7 +21,7 @@ class MyThread(threading.Thread):
     def run(self):
         thread_lock.acquire()
         try:
-            execute(self.name, self.tickets, self.is_this_week)
+            execute(self.section, self.name, self.tickets, self.is_this_week)
         except Exception as ex:
             logger.fatal(ex)
         finally:
@@ -120,10 +121,10 @@ def generate_token(msg):
     return base64.b64encode(ser_key)
 
 
-def execute(name, tickets, is_this_week):
+def execute(section, name, tickets, is_this_week):
     logger.debug("login: %s" % name)
     # print "start name:%s" % name
-    password = conf.get("geoff", name)
+    password = conf.get(section, name)
     if not arc_model.execute_login(name, password):
         return
 
@@ -132,7 +133,7 @@ def execute(name, tickets, is_this_week):
         logger.error('open iar error: %s' % name)
         return
 
-    ped, action, arcNumber = arc_regex.iar(iar_html, is_this_week = is_this_week)
+    ped, action, arcNumber = arc_regex.iar(iar_html, is_this_week=is_this_week)
     if not action:
         logger.error('regex iar error: %s' % name)
         arc_model.logout()
@@ -197,8 +198,9 @@ def execute(name, tickets, is_this_week):
 def thread_set(tickets, is_this_week):
     threads = []
     # thread_lock = threading.Lock()
-    for option in conf.options("geoff"):
-        thread = MyThread(option, tickets, is_this_week)
+    section = "extra"
+    for option in conf.options(section):
+        thread = MyThread(section, option, tickets, is_this_week)
         thread.start()
         threads.append(thread)
 

@@ -10,8 +10,9 @@ import os
 
 
 class MyThread(threading.Thread):
-    def __init__(self, name, is_this_week, csv_lines, is_first_arc_number):
+    def __init__(self, section, name, is_this_week, csv_lines, is_first_arc_number):
         threading.Thread.__init__(self)
+        self.section = section
         self.name = name
         self.is_this_week = is_this_week
         self.csv_lines = csv_lines
@@ -21,7 +22,7 @@ class MyThread(threading.Thread):
         # print "runnuing: " + self.name + '\n'
         thread_lock.acquire()
         try:
-            execute(self.name, self.is_this_week, self.csv_lines, self.is_first_arc_number)
+            execute(self.section, self.name, self.is_this_week, self.csv_lines, self.is_first_arc_number)
         except Exception as ex:
             logger.fatal(ex)
         finally:
@@ -108,9 +109,9 @@ def generate_token(msg):
     return base64.b64encode(ser_key)
 
 
-def execute(name, is_this_week, csv_lines, is_first_arc_number):
+def execute(section, name, is_this_week, csv_lines, is_first_arc_number):
     # print "start name:%s" % name
-    password = conf.get("geoff", name)
+    password = conf.get(section, name)
     if not arc_model.execute_login(name, password):
         return
 
@@ -201,8 +202,9 @@ def execute(name, is_this_week, csv_lines, is_first_arc_number):
 def thread_set(is_this_week, csv_lines, is_first_arc_number):
     threads = []
     # thread_lock = threading.Lock()
-    for option in conf.options("geoff"):
-        thread = MyThread(option, is_this_week, csv_lines=csv_lines, is_first_arc_number=is_first_arc_number)
+    section = "extra"
+    for option in conf.options(section):
+        thread = MyThread(section, option, is_this_week, csv_lines=csv_lines, is_first_arc_number=is_first_arc_number)
         thread.start()
         threads.append(thread)
 

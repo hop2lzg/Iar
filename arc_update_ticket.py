@@ -201,7 +201,7 @@ try:
         if ped_text and ped_text.upper() == "FALSE":
             is_this_week = False
 
-        section = "geoff"
+        section = "extra"
         for option in conf.options(section):
             account_id = option
             run(section, account_id, data, is_this_week)
