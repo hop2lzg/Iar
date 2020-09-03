@@ -28,6 +28,10 @@ def execute(post, action, token, from_date, to_date):
     if not seqNum:
         return
 
+    # carrier = arc_regex.get_carrier(search_html)
+    # if carrier and carrier == "890":
+    #     return
+
     modify_html = arc_model.modifyTran(seqNum, documentNumber)
     if not modify_html:
         return
@@ -188,6 +192,10 @@ and (iar.AuditorStatus is null or iar.AuditorStatus=0)
             else:
                 continue
             v['TicketNumber'] = ticket_row.TicketNumber
+            logger.debug("TKT#: %s" % v['TicketNumber'])
+            if v['TicketNumber'] and len(v['TicketNumber']) > 3 and v["TicketNumber"][0:3] == "890":
+                logger.info("THIS IS 890, TKT#: %s " % v["TicketNumber"])
+                continue
             v['Ticket'] = ticket_row.Ticket
             v['IssueDate'] = str(ticket_row.IssueDate)
             v['ArcNumber'] = ticket_row.ArcNumber
@@ -418,6 +426,11 @@ if not list_data:
         else:
             continue
         v['TicketNumber'] = row.TicketNumber
+        logger.debug("TKT#: %s" % v['TicketNumber'])
+        if v['TicketNumber'] and len(v['TicketNumber']) > 3 and v["TicketNumber"][0:3] == "890":
+            logger.info("THIS IS 890, TKT#: %s " % v["TicketNumber"])
+            continue
+
         v['Ticket'] = row.Ticket
         v['IssueDate'] = str(row.IssueDate)
         v['ArcNumber'] = row.ArcNumber
@@ -444,6 +457,8 @@ list_data_add(ms, list_data, get_account_codes(ms_44, AT_error_sql), "AT-ERROR",
 
 list_data_add(ms, list_data, ["ITTEST"], "QC-BROKE", list_id)
 logger.info("ALL DATA: %s" % list_data)
+
+
 def run(user_name, datas):
     # ----------------------login
     logger.debug(user_name)

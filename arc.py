@@ -1062,6 +1062,7 @@ class ArcModel:
 class Regex:
     def __init__(self):
         self._pattern_token = re.compile(r'input type="hidden" name="org\.apache\.struts\.taglib\.html\.TOKEN" value="([\da-z]{32})"')
+        self._pattern_carrier = re.compile(r'<td.+?>(\d{3})</td>\s*<td.+?>\s*<a href="/IAR/modifyTran\.do\?seqNum=\d{10}&amp;documentNumber=\d{10}"')
         self._pattern_search = re.compile(r'<a href="/IAR/modifyTran\.do\?seqNum=(\d{10})&amp;documentNumber=(\d{10})"')
         self._pattern_masked = re.compile(
             r'<textarea name="maskedFC" cols="60" rows="5" readonly="readonly" class="disabled">(.+?)</textarea>')
@@ -1170,6 +1171,13 @@ class Regex:
             to_date_value_index = html[to_date_index:].find("value=\"")
             to_date = html[to_date_index + to_date_value_index + 7:to_date_index + to_date_value_index + 14]
         return token, from_date, to_date
+
+    def get_carrier(self, html):
+        m = self.__public(self._pattern_carrier, html)
+        if m:
+            return m[0]
+
+        return None
 
     def search(self, html):
         result = self.__public(self._pattern_search, html)

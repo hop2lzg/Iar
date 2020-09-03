@@ -412,6 +412,10 @@ for i in rows:
     v['Id'] = i.Id
     v['QcId'] = i.qcId
     v['TicketNumber'] = i.TicketNumber
+    logger.debug("TKT#: %s" % v['TicketNumber'])
+    if v['TicketNumber'] and len(v['TicketNumber']) > 3 and v["TicketNumber"][0:3] == "890":
+        logger.info("THIS IS 890, TKT#: %s " % v["TicketNumber"])
+        continue
     v['Ticket'] = i.Ticket
     v['IssueDate'] = str(i.IssueDate)
     v['ArcNumber'] = i.ArcNumber

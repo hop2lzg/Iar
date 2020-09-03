@@ -329,6 +329,10 @@ if not list_data:
         v = {}
         v['Id'] = row.Id
         v['TicketNumber'] = row.TicketNumber
+        logger.debug("TKT#: %s" % v['TicketNumber'])
+        if v['TicketNumber'] and len(v['TicketNumber']) > 3 and v["TicketNumber"][0:3] == "890":
+            logger.info("THIS IS 890, TKT#: %s " % v["TicketNumber"])
+            continue
         v['Ticket'] = row.Ticket
         v['IssueDate'] = str(row.IssueDate)
         v['ArcNumber'] = row.ArcNumber

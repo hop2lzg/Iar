@@ -46,10 +46,11 @@ class WebSocketThread(threading.Thread):
         self.__send("LOADING")
         jsonData = json.loads(re)
         is_this_week = jsonData["IsThisWeek"]
+        is_mza = jsonData["IsMZA"]
         tickets = jsonData["Iars"]
         logger.info("tickets: %s" % tickets)
         if tickets and len(tickets) > 0:
-            thread_set(tickets, is_this_week)
+            thread_set(tickets, is_this_week, is_mza)
         self.__send("OVER")
         logger.debug("items")
         logger.debug(items)
@@ -195,11 +196,16 @@ def execute(section, name, tickets, is_this_week):
         arc_model.logout()
 
 
-def thread_set(tickets, is_this_week):
+def thread_set(tickets, is_this_week, is_mza):
     threads = []
     # thread_lock = threading.Lock()
     section = "extra"
+    if is_mza:
+        section = "extra-mza"
+
     for option in conf.options(section):
+        if is_mza and option != "gttmza-bw":
+            continue
         thread = MyThread(section, option, tickets, is_this_week)
         thread.start()
         threads.append(thread)
