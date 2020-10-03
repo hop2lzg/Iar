@@ -1301,9 +1301,11 @@ class MSSQL:
     def __GetConnect(self):
         if not self.db:
             raise (NameError, "database no value")
+
         self.conn = pyodbc.connect(DRIVER="{SQL Server}", SERVER=self.server, DATABASE=self.db, UID=self.user,
                                    PWD=self.pwd)
 
+        self.conn.timeout = 1 * 60 * 3
         cur = self.conn.cursor()
         if not cur:
             raise (NameError, "connnect error")

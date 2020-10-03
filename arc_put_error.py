@@ -149,8 +149,8 @@ set @endDate=GETDATE()
 select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'AT-ERROR' ErrorCode,iar.Id iarId from Ticket t
 left join IarUpdate iar
 on t.Id=iar.TicketId
-where t.CreateDate>=@startDate
-and t.CreateDate<@endDate
+where t.insertDate>=@startDate
+and t.insertDate<@endDate
 and t.Status not like '[NV]%'
 and t.sourceFrom in ('GAT','SAT')
 and ISNULL(t.McoNumber,'')=''
@@ -169,8 +169,8 @@ and (iar.AuditorStatus is null or iar.AuditorStatus=0)
         on t.Id = qc.TicketId
         left join IarUpdate iar
         on t.Id=iar.TicketId
-        where t.CreateDate>=@startDate
-        and t.CreateDate<@endDate
+        where t.insertDate>=@startDate
+        and t.insertDate<@endDate
         and t.Status not like '[NV]%'
         and qc.OPStatus=16
         and (iar.Id is null or iar.IsPutError=0)
@@ -304,8 +304,7 @@ left join [CollectData].[dbo].TicketQC qc
 on t.Id=qc.TicketId
 left join IarUpdate iar
 on t.Id=iar.TicketId
---where t.CreateDate>='20180305' and t.CreateDate<'20180306'
-where t.CreateDate>=@t and t.CreateDate<DATEADD(DAY,1,@t)
+where t.insertDate>=@t and t.insertDate<DATEADD(DAY,1,@t)
 and t.[Status] not like '[NV]%'
 and (t.TicketType is null or t.TicketType<>'EX')
 and t.Comm=0
@@ -371,7 +370,7 @@ union
 select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-Cabin' ErrorCode,iar.Id iarId from Ticket t
 left join IarUpdate iar
 on t.Id=iar.TicketId
-where t.CreateDate>=@t and t.CreateDate<DATEADD(DAY,1,@t)
+where t.insertDate>=@t and t.insertDate<DATEADD(DAY,1,@t)
 and t.[Status] not like '[NV]%'
 and t.QCStatus=2 
 and t.QCMessage like 'Possible Cabin Abuse:%'
@@ -383,7 +382,7 @@ left join TicketQC qc
 on t.Id=qc.TicketId
 left join IarUpdate iar
 on t.Id=iar.TicketId
-where t.CreateDate>=@t and t.CreateDate<DATEADD(DAY,1,@t)
+where t.insertDate>=@t and t.insertDate<DATEADD(DAY,1,@t)
 and qc.AGStatus=3
 and (iar.Id is null or iar.IsPutError=0)
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
@@ -410,38 +409,266 @@ and (iar.AuditorStatus is null or iar.AuditorStatus=0)
 order by ArcNumber,Ticket
 ''')
 
+select_sqls = []
+select_sqls.append('''
+declare @t date
+set @t=DATEADD(DAY,-1,GETDATE())
+select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-ERROR' ErrorCode,iar.Id iarId from Ticket t
+left join IarUpdate iar
+on t.Id=iar.TicketId
+where Status not like '[NV]%'
+and IssueDate=@t
+and ISNULL(McoNumber,'')=''
+and (iar.Id is null or iar.IsUpdated=0)
+and (iar.AuditorStatus is null or iar.AuditorStatus=0)
+and ((QCStatus=2
+and TicketNumber not like '04[457]7%' 
+and TicketNumber not like '04[457]86%'
+and TicketNumber not like '13[49]7%' 
+and TicketNumber not like '13[49]86%'
+and TicketNumber not like '1477%' 
+and TicketNumber not like '14786%'
+and TicketNumber not like '2307%' 
+and TicketNumber not like '23086%'
+and TicketNumber not like '2697%' 
+and TicketNumber not like '26986%'
+and TicketNumber not like '46[29]7%' 
+and TicketNumber not like '46[29]86%'
+and TicketNumber not like '5447%' 
+and TicketNumber not like '54486%'
+and TicketNumber not like '8377%' 
+and TicketNumber not like '83786%'
+and TicketNumber not like '9577%' 
+and TicketNumber not like '95786%'
+and TicketNumber not like '890%')
+or 
+(TicketNumber like '1577%' or TicketNumber like '15786%'
+or (TicketNumber like '7817%' or TicketNumber like '78186%')))
+''')
+
+select_sqls.append('''
+select t.Id,t.[SID],t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,PaymentType,t.Comm,'DUP' ErrorCode,iar.Id iarId from Ticket t
+right join TicketDuplicate td
+on t.id=td.id
+left join IarUpdate iar
+on t.Id=iar.TicketId
+where td.insertDateTime>=DATEADD(day,-7,getdate())
+and ISNULL(McoNumber,'')=''
+and td.isARCUpdated=0
+and (iar.IsUpdated is null or iar.IsUpdated=0)
+and (iar.AuditorStatus is null or iar.AuditorStatus=0)
+''')
+
+select_sqls.append('''
+select t.Id,t.[SID],t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,PaymentType,
+CASE WHEN qc.OPComm is null THEN t.QCComm
+ELSE qc.OPComm END Comm
+,'AG-Agree' ErrorCode,iar.Id iarId from Ticket t
+right join TicketQC qc
+on t.id=qc.TicketId
+left join IarUpdate iar
+on t.Id=iar.TicketId
+where qc.AGDate>=DATEADD(day,-3,getdate())
+and qc.AGStatus=1
+and (iar.Id is null or iar.IsPutError=0)
+and (iar.AuditorStatus is null or iar.AuditorStatus=0)
+and ISNULL(McoNumber,'')=''
+''')
+
+select_sqls.append('''
+declare @t date
+set @t=DATEADD(DAY,-1,GETDATE())
+select aa.Id,aa.[SID],aa.TicketNumber,aa.Ticket,aa.IssueDate,aa.ArcNumber,aa.PaymentType,
+aa.Comm,aa.ErrorCode,aa.iarId from (
+select t.Id,t.[SID],t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,PaymentType,
+case when iar.Commission is null then t.Comm else iar.Commission end Comm,
+t.Selling - t.Total + case when iar.Commission is null then t.Comm else iar.Commission end Profit,
+t.Base
+,'QC-PROFIT' ErrorCode,iar.Id iarId from [CollectData].[dbo].Ticket t
+left join [CollectData].[dbo].TicketQC qc
+on t.Id=qc.TicketId
+left join IarUpdate iar
+on t.Id=iar.TicketId
+where t.IssueDate>=@t and t.IssueDate<DATEADD(DAY,1,@t)
+and t.[Status] not like '[NV]%'
+and (t.TicketType is null or t.TicketType<>'EX')
+and t.Comm=0
+and t.FareType in ('SR','BULK')
+and qc.OPStatus=14
+and (t.promoCode is null or t.promoCode='')
+and iar.isPutError=0
+and iar.AuditorStatus=0
+and t.Selling>0
+and ISNULL(McoNumber,'')=''
+) aa
+where aa.Profit<0
+and -aa.Profit > Base*0.05
+''')
+
+select_sqls.append('''
+declare @t date
+set @t=DATEADD(DAY,-1,GETDATE())
+select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'AT-ERROR' ErrorCode,iar.Id iarId from Ticket t
+left join IarUpdate iar
+on t.Id=iar.TicketId
+where t.IssueDate=@t
+and t.PaymentType='C'
+and (t.TicketNumber like '78[14]%' or t.TicketNumber like '731%' or t.TicketNumber like '876%' or t.TicketNumber like '880%')
+and t.Charge<t.Total
+and t.GDS='1A'
+and t.sourceFrom in ('GAT','SAT','WGAT','WSAT')
+and ISNULL(t.McoNumber,'')<>''
+and (iar.Id is null or iar.IsPutError=0)
+and (iar.AuditorStatus is null or iar.AuditorStatus=0)
+''')
+
+select_sqls.append('''
+declare @t date
+set @t=DATEADD(DAY,-1,GETDATE())
+select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-RE' ErrorCode,iar.Id iarId from Ticket t
+left join IarUpdate iar
+on t.Id=iar.TicketId
+where t.IssueDate=@t
+and ((t.ArcNumber='45668571' and t.AgentSign in ('MM','MG','ZG','YU','S7'))
+	or (t.ArcNumber='45666574' and t.AgentSign in ('PF','NQ','LL','XL')))
+and TicketNumber not like '180%'
+and TicketNumber not like '784%'
+and TicketNumber not like '230%'
+and TicketNumber not like '098%'
+and TicketNumber not like '890%'
+and (TicketNumber like '[0-9][0-9][0-9]7%' or TicketNumber like '[0-9][0-9][0-9]86%')
+and ISNULL(t.McoNumber,'')=''
+and (iar.Id is null or iar.IsPutError=0)
+and (iar.AuditorStatus is null or iar.AuditorStatus=0)
+''')
+
+select_sqls.append('''
+declare @t date
+set @t=DATEADD(DAY,-1,GETDATE())
+select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-ERROR' ErrorCode,iar.Id iarId from Ticket t
+left join IarUpdate iar
+on t.Id=iar.TicketId
+where t.IssueDate=@t
+and PaymentType='C'
+and Status not like '[NV]%'
+and 
+(TicketNumber like '1[02]55%'
+or 
+((TicketNumber like '1087%' or TicketNumber like '10886%'
+or TicketNumber like '0757%' or TicketNumber like '07586%')
+and (FareType='BULK' or FareType='SR')
+)
+or 
+(TicketNumber like '1085%' or TicketNumber like '0755%')
+)
+and (iar.Id is null or iar.IsPutError=0)
+and (iar.AuditorStatus is null or iar.AuditorStatus=0)
+''')
+
+select_sqls.append('''
+declare @t date
+set @t=DATEADD(DAY,-1,GETDATE())
+select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-Cabin' ErrorCode,iar.Id iarId from Ticket t
+left join IarUpdate iar
+on t.Id=iar.TicketId
+where t.insertDate>=@t and t.insertDate<DATEADD(DAY,1,@t)
+and t.[Status] not like '[NV]%'
+and t.QCStatus=2 
+and t.QCMessage like 'Possible Cabin Abuse:%'
+and (iar.Id is null or iar.IsPutError=0)
+and (iar.AuditorStatus is null or iar.AuditorStatus=0)
+''')
+
+select_sqls.append('''
+declare @t date
+set @t=DATEADD(DAY,-1,GETDATE())
+select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-AG' ErrorCode,iar.Id iarId from Ticket t
+left join TicketQC qc
+on t.Id=qc.TicketId
+left join IarUpdate iar
+on t.Id=iar.TicketId
+where t.insertDate>=@t and t.insertDate<DATEADD(DAY,1,@t)
+and qc.AGStatus=3
+and (iar.Id is null or iar.IsPutError=0)
+and (iar.AuditorStatus is null or iar.AuditorStatus=0)
+and ISNULL(qc.AGDate,'1900-1-1') >= ISNULL(qc.OPDate,'1900-1-1')
+''')
+
+select_sqls.append('''
+declare @t date
+set @t=DATEADD(DAY,-1,GETDATE())
+select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-RE' ErrorCode,iar.Id iarId from Ticket t
+left join IarUpdate iar
+on t.Id=iar.TicketId
+where t.IssueDate=@t
+and t.AccountCode='TITPCC'
+and (TicketNumber like '[0-9][0-9][0-9]7%' or TicketNumber like '[0-9][0-9][0-9]86%')
+and (iar.Id is null or iar.IsPutError=0)
+and (iar.AuditorStatus is null or iar.AuditorStatus=0)
+''')
+
+select_sqls.append('''
+declare @t date
+set @t=DATEADD(DAY,-1,GETDATE())
+select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-ERROR' ErrorCode,iar.Id iarId from Ticket t
+left join IarUpdate iar
+on t.Id=iar.TicketId
+where IssueDate>='2020-03-27'
+and agentSign='WS'
+and ArcNumber='23534803'
+and (TicketNumber like '[0-9][0-9][0-9]7%' or TicketNumber like '[0-9][0-9][0-9]86%')
+and (iar.Id is null or iar.IsPutError=0)
+and (iar.AuditorStatus is null or iar.AuditorStatus=0)
+order by ArcNumber,Ticket
+''')
+
 list_data = arc_model.load()
 list_id = []
 
+
 if not list_data:
-    rows = ms.ExecQuery(sql)
-    if len(rows) == 0:
-        sys.exit(0)
     list_data = []
-    for row in rows:
-        v = {}
-        v['Id'] = row.Id
-        if v['Id'] not in list_id:
-            list_id.append(v['Id'])
-        else:
-            continue
-        v['TicketNumber'] = row.TicketNumber
-        logger.debug("TKT#: %s" % v['TicketNumber'])
-        if v['TicketNumber'] and len(v['TicketNumber']) > 3 and v["TicketNumber"][0:3] == "890":
-            logger.info("THIS IS 890, TKT#: %s " % v["TicketNumber"])
+    for sql in select_sqls:
+        rows = None
+        try:
+            logger.debug(sql)
+            rows = ms.ExecQuery(sql)
+        except Exception as ex:
+            logger.fatal(ex)
+            sys.exit(0)
+
+        if len(rows) == 0:
             continue
 
-        v['Ticket'] = row.Ticket
-        v['IssueDate'] = str(row.IssueDate)
-        v['ArcNumber'] = row.ArcNumber
-        v['Status'] = 0
-        v['ErrorCode'] = row.ErrorCode
-        v['IarId'] = row.iarId
-        v['Commission'] = None
-        if row.Comm is not None:
-            v['Commission'] = str(row.Comm)
+        for row in rows:
+            v = {}
+            v['Id'] = row.Id
+            if v['Id'] not in list_id:
+                list_id.append(v['Id'])
+            else:
+                continue
+            v['TicketNumber'] = row.TicketNumber
+            logger.debug("TKT#: %s" % v['TicketNumber'])
+            if v['TicketNumber'] and len(v['TicketNumber']) > 3 and v["TicketNumber"][0:3] == "890":
+                logger.info("THIS IS 890, TKT#: %s " % v["TicketNumber"])
+                continue
 
-        list_data.append(v)
+            v['Ticket'] = row.Ticket
+            v['IssueDate'] = str(row.IssueDate)
+            v['ArcNumber'] = row.ArcNumber
+            v['Status'] = 0
+            v['ErrorCode'] = row.ErrorCode
+            v['IarId'] = row.iarId
+            v['Commission'] = None
+            if row.Comm is not None:
+                v['Commission'] = str(row.Comm)
+
+            list_data.append(v)
+
+
+
+if not list_data:
+    sys.exit(0)
 
 # print list_data
 ms_44 = arc.MSSQL(server=sql_server_44, db=sql_database_44, user=sql_user_44, pwd=sql_pwd_44)

@@ -352,7 +352,59 @@ sql_user = conf.get("sql", "user")
 sql_pwd = conf.get("sql", "pwd")
 ms = arc.MSSQL(server=sql_server, db=sql_database, user=sql_user, pwd=sql_pwd)
 
-sql = ('''
+# sql = ('''
+# declare @t date
+# set @t=dateadd(day,-7,getdate())
+# select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
+# t.Comm,t.TourCode,qc.AGComm UpdateComm,qc.AGTourCode UpdateTourCode,qc.OPUser,qc.OPLastUser,t.FareType,qc.AGStatus,
+# 'AG' updatedByRole,iar.Id IarId from Ticket t
+# left join TicketQC qc
+# on t.Id=qc.TicketId
+# left join IarUpdate iar
+# on t.Id=iar.TicketId
+# where (qc.ARCupdated=0 or (qc.ARCupdated=1 and iar.IsUpdated=0 and iar.runTimes=0))
+# and qc.AGStatus=1
+# and (iar.Commission is null or iar.Commission<>qc.AGComm or iar.TourCode<>qc.AGTourCode)
+# and (iar.AuditorStatus is null or iar.AuditorStatus=0)
+# and t.insertDate>=@t
+# and ISNULL(qc.AGDate,'1900-1-1') >= ISNULL(qc.OPDate,'1900-1-1')
+# union
+# select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
+# t.Comm,t.TourCode,qc.OPComm UpdateComm,qc.OPTourCode UpdateTourCode,qc.OPUser,qc.OPLastUser,t.FareType,qc.AGStatus,
+# 'OP' updatedByRole,iar.Id IarId from Ticket t
+# left join TicketQC qc
+# on t.Id=qc.TicketId
+# left join IarUpdate iar
+# on t.Id=iar.TicketId
+# where (qc.ARCupdated=0 or (qc.ARCupdated=1 and iar.IsUpdated=0 and iar.runTimes=0))
+# and qc.OPStatus=2
+# and (qc.AGStatus<>3 or (qc.AGStatus=3 and ISNULL(qc.OPDate,'1900-1-1') >= ISNULL(qc.AGDate,'1900-1-1')))
+# and (t.Comm<>qc.OPComm or t.TourCode<>qc.OPTourCode)
+# and (iar.Commission is null or iar.Commission<>qc.OPComm or ISNULL(iar.TourCode,'')<>ISNULL(qc.OPTourCode,''))
+# and (iar.AuditorStatus is null or iar.AuditorStatus=0)
+# and t.insertDate>=@t
+# union
+# select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
+# t.Comm,t.TourCode,qc.OPComm UpdateComm,qc.OPTourCode UpdateTourCode,qc.OPUser,qc.OPLastUser,t.FareType,qc.AGStatus,
+# 'OPA' updatedByRole,iar.Id IarId from Ticket t
+# left join TicketQC qc
+# on t.Id=qc.TicketId
+# left join IarUpdate iar
+# on t.Id=iar.TicketId
+# where (qc.ARCupdated=0 or (qc.ARCupdated=1 and iar.IsUpdated=0 and iar.runTimes=0))
+# and qc.OPStatus in (1, 15)
+# and qc.OPComm is not null
+# and (qc.AGStatus<>3 or (qc.AGStatus=3 and ISNULL(qc.OPDate,'1900-1-1') >= ISNULL(qc.AGDate,'1900-1-1')))
+# and (qc.OPComm<> t.Comm or ISNULL(qc.OPTourCode,'')<>ISNULL(t.TourCode,''))
+# and (iar.Commission is null or iar.Commission<>qc.OPComm or ISNULL(iar.TourCode,'')<>ISNULL(qc.OPTourCode,''))
+# and (iar.AuditorStatus is null or iar.AuditorStatus=0)
+# and t.insertDate>=@t
+# order by IssueDate
+# ''')
+
+select_sqls = []
+
+select_sqls.append('''
 declare @t date
 set @t=dateadd(day,-7,getdate())
 select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
@@ -366,9 +418,13 @@ where (qc.ARCupdated=0 or (qc.ARCupdated=1 and iar.IsUpdated=0 and iar.runTimes=
 and qc.AGStatus=1
 and (iar.Commission is null or iar.Commission<>qc.AGComm or iar.TourCode<>qc.AGTourCode)
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
-and t.CreateDate>=@t
+and t.insertDate>=@t
 and ISNULL(qc.AGDate,'1900-1-1') >= ISNULL(qc.OPDate,'1900-1-1')
-union
+''')
+
+select_sqls.append('''
+declare @t date
+set @t=dateadd(day,-7,getdate())
 select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
 t.Comm,t.TourCode,qc.OPComm UpdateComm,qc.OPTourCode UpdateTourCode,qc.OPUser,qc.OPLastUser,t.FareType,qc.AGStatus,
 'OP' updatedByRole,iar.Id IarId from Ticket t
@@ -382,8 +438,12 @@ and (qc.AGStatus<>3 or (qc.AGStatus=3 and ISNULL(qc.OPDate,'1900-1-1') >= ISNULL
 and (t.Comm<>qc.OPComm or t.TourCode<>qc.OPTourCode)
 and (iar.Commission is null or iar.Commission<>qc.OPComm or ISNULL(iar.TourCode,'')<>ISNULL(qc.OPTourCode,''))
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
-and t.CreateDate>=@t
-union
+and t.insertDate>=@t
+''')
+
+select_sqls.append('''
+declare @t date
+set @t=dateadd(day,-7,getdate())
 select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
 t.Comm,t.TourCode,qc.OPComm UpdateComm,qc.OPTourCode UpdateTourCode,qc.OPUser,qc.OPLastUser,t.FareType,qc.AGStatus,
 'OPA' updatedByRole,iar.Id IarId from Ticket t
@@ -398,58 +458,75 @@ and (qc.AGStatus<>3 or (qc.AGStatus=3 and ISNULL(qc.OPDate,'1900-1-1') >= ISNULL
 and (qc.OPComm<> t.Comm or ISNULL(qc.OPTourCode,'')<>ISNULL(t.TourCode,''))
 and (iar.Commission is null or iar.Commission<>qc.OPComm or ISNULL(iar.TourCode,'')<>ISNULL(qc.OPTourCode,''))
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
-and t.CreateDate>=@t
-order by IssueDate
+and t.insertDate>=@t
 ''')
 
-rows = ms.ExecQuery(sql)
-if len(rows) == 0:
-    sys.exit(0)
-
 list_data = []
-for i in rows:
-    v = {}
-    v['Id'] = i.Id
-    v['QcId'] = i.qcId
-    v['TicketNumber'] = i.TicketNumber
-    logger.debug("TKT#: %s" % v['TicketNumber'])
-    if v['TicketNumber'] and len(v['TicketNumber']) > 3 and v["TicketNumber"][0:3] == "890":
-        logger.info("THIS IS 890, TKT#: %s " % v["TicketNumber"])
+list_id = []
+for sql in select_sqls:
+    rows = None
+    try:
+        logger.debug(sql)
+        rows = ms.ExecQuery(sql)
+    except Exception as ex:
+        logger.fatal(ex)
+        sys.exit(0)
+
+    if len(rows) == 0:
         continue
-    v['Ticket'] = i.Ticket
-    v['IssueDate'] = str(i.IssueDate)
-    v['ArcNumber'] = i.ArcNumber
-    v['Comm'] = str(i.Comm)
-    v['QCComm'] = ""
-    if i.UpdateComm is not None:
-        v['QCComm'] = str(i.UpdateComm)
-    v['TourCode'] = i.TourCode
-    v['QCTourCode'] = i.UpdateTourCode
-    v['ArcComm'] = ''
-    v['ArcTourCode'] = ''
-    v['TicketDesignator'] = ''
-    v['ArcCommUpdated'] = ''
-    v['ArcTourCodeUpdated'] = ''
-    v['ArcId'] = i.IarId
-    v['Status'] = 0
-    if i.PaymentType != 'C':
-        v['Status'] = 3
 
-    op_user = ""
-    if i.OPUser:
-        op_user = str(i.OPUser).strip().upper()
+    for i in rows:
+        v = {}
+        v['Id'] = i.Id
+        if v['Id'] not in list_id:
+            list_id.append(v['Id'])
+        else:
+            continue
 
-    if op_user != "GW" and i.OPLastUser:
-        op_user = str(i.OPLastUser).strip().upper()
+        v['QcId'] = i.qcId
+        v['TicketNumber'] = i.TicketNumber
+        logger.debug("TKT#: %s" % v['TicketNumber'])
+        if v['TicketNumber'] and len(v['TicketNumber']) > 3 and v["TicketNumber"][0:3] == "890":
+            logger.info("THIS IS 890, TKT#: %s " % v["TicketNumber"])
+            continue
+        v['Ticket'] = i.Ticket
+        v['IssueDate'] = str(i.IssueDate)
+        v['ArcNumber'] = i.ArcNumber
+        v['Comm'] = str(i.Comm)
+        v['QCComm'] = ""
+        if i.UpdateComm is not None:
+            v['QCComm'] = str(i.UpdateComm)
+        v['TourCode'] = i.TourCode
+        v['QCTourCode'] = i.UpdateTourCode
+        v['ArcComm'] = ''
+        v['ArcTourCode'] = ''
+        v['TicketDesignator'] = ''
+        v['ArcCommUpdated'] = ''
+        v['ArcTourCodeUpdated'] = ''
+        v['ArcId'] = i.IarId
+        v['Status'] = 0
+        if i.PaymentType != 'C':
+            v['Status'] = 3
 
-    v['OPUser'] = op_user
-    v['AGStatus'] = i.AGStatus
-    v['updatedByRole'] = i.updatedByRole
-    v['isPutError'] = False
-    v['hasPutError'] = False
-    v['FareType'] = i.FareType
-    v['errorCode'] = ""
-    list_data.append(v)
+        op_user = ""
+        if i.OPUser:
+            op_user = str(i.OPUser).strip().upper()
+
+        if op_user != "GW" and i.OPLastUser:
+            op_user = str(i.OPLastUser).strip().upper()
+
+        v['OPUser'] = op_user
+        v['AGStatus'] = i.AGStatus
+        v['updatedByRole'] = i.updatedByRole
+        v['isPutError'] = False
+        v['hasPutError'] = False
+        v['FareType'] = i.FareType
+        v['errorCode'] = ""
+        list_data.append(v)
+
+
+if not list_data:
+    sys.exit(0)
 
 
 try:
