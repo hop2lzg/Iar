@@ -134,6 +134,7 @@ class ArcModel:
 
     def login(self, name, password):
         self.logger.debug("START HOME")
+        self.logger.debug("login user: %s" % name)
         self._opener.open("https://www.arccorp.com", timeout=60)
         self.logger.debug("LOGIN: %s" % name)
 

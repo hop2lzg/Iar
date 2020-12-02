@@ -173,33 +173,6 @@ sql_database = conf.get("sqlRefund", "database")
 sql_user = conf.get("sqlRefund", "user")
 sql_pwd = conf.get("sqlRefund", "pwd")
 ms = arc.MSSQL(server=sql_server, db=sql_database, user=sql_user, pwd=sql_pwd)
-# sql = ('''
-# declare @start date
-# declare @end date
-# set @start = DATEADD(day,-1,getdate())
-# set @end = GETDATE()
-# select Branch,PCC,TicketNumber,PaymentType,GdsStatus,IARStatus,WaiverCode,CreateDate from TicketRefund
-# where WaiverCode<>''
-# and CreateDate>=@start
-# and CreateDate<@end
-# ''')
-
-# rows = ms.ExecQuery(sql)
-# if len(rows) == 0:
-#     logger.warn("NO DATA")
-#     sys.exit(0)
-
-# sql_server_ticketFDA = conf.get("sqlTicketFDA", "server")
-# sql_database_ticketFDA = conf.get("sqlTicketFDA", "database")
-# sql_user_ticketFDA = conf.get("sqlTicketFDA", "user")
-# sql_pwd_ticketFDA = conf.get("sqlTicketFDA", "pwd")
-# ms_ticketFDA = arc.MSSQL(server=sql_server_ticketFDA, db=sql_database_ticketFDA, user=sql_user_ticketFDA, pwd=sql_pwd_ticketFDA)
-# sql_ticketFDA = ('''
-# select BranchCode,IataNumber,WorldspanSID,SabreSID,AmaduesSID AmadeusSID,ApolloSID,GalileoSID from Branch
-# where IsDelete=0
-# ''')
-#
-# branchs = ms_ticketFDA.ExecQuery(sql_ticketFDA)
 
 
 thread_lock = threading.Lock()

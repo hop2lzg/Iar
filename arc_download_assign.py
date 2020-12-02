@@ -114,14 +114,17 @@ def generate_token(msg):
 def execute(section, name, is_this_week, csv_lines, is_first_arc_number):
     # print "start name:%s" % name
     password = conf.get(section, name)
+
     if not arc_model.execute_login(name, password):
         return
 
+    logger.debug("logined")
     iar_html = arc_model.iar()
     if not iar_html:
         logger.error('open iar error: '+name)
         return
 
+    logger.debug("iar page")
     ped, action, arcNumber = arc_regex.iar(iar_html, is_this_week)
     if not action:
         logger.error('regex iar error: '+name)
@@ -166,6 +169,8 @@ def execute(section, name, is_this_week, csv_lines, is_first_arc_number):
 
             if not token:
                 continue
+
+            logger.debug("downloading csv")
             csv_text = arc_model.get_csv(arc_name, is_this_week, ped, action, arc_number, token, from_date, to_date,
                                          selectedTransactionType="SA", selectedFormOfPayment="CA", tick=tick)
 

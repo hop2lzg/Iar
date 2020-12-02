@@ -111,12 +111,10 @@ def list_data_add(mssql, data, account_codes, error_code, list_id):
     ticket_sql = ""
 
     if error_code == "QC-HRISK":
-        ticket_sql = '''declare @date date
-    set @date=DATEADD(DAY,-2,GETDATE())
-    select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-HRISK' ErrorCode,iar.Id iarId from Ticket t
+        ticket_sql = '''select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-HRISK' ErrorCode,iar.Id iarId from Ticket t
     left join IarUpdate iar
     on t.Id=iar.TicketId
-    where t.IssueDate=@date
+    where t.IssueDate=CAST(DATEADD(DAY,-2,GETDATE()) AS DATE)
     and t.Status not like '[NV]%'
     and ISNULL(t.McoNumber,'')=''
     ''' + account_code_where + '''
@@ -124,15 +122,12 @@ def list_data_add(mssql, data, account_codes, error_code, list_id):
     and (iar.AuditorStatus is null or iar.AuditorStatus=0)
     '''
     elif error_code == "QC-LF":
-        ticket_sql = '''
-        declare @date date
-set @date=DATEADD(DAY,-1,GETDATE())
-select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-LF' ErrorCode,iar.Id iarId from Ticket t
+        ticket_sql = '''select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-LF' ErrorCode,iar.Id iarId from Ticket t
 left join IarUpdate iar
 on t.Id=iar.TicketId
 INNER JOIN TicketLowestFare lf
 on t.Id=lf.TicketId
-where t.IssueDate=@date
+where t.IssueDate=CAST(DATEADD(DAY,-1,GETDATE()) AS DATE)
 and t.Status not like '[NV]%'
 and ISNULL(t.McoNumber,'')=''
 ''' + account_code_where + '''
@@ -141,16 +136,11 @@ and (iar.Id is null or iar.IsPutError=0)
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
 '''
     elif error_code == "AT-ERROR":
-        ticket_sql = '''
-        declare @startDate date
-declare @endDate date
-set @startDate=DATEADD(day,-1,GETDATE())
-set @endDate=GETDATE()
-select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'AT-ERROR' ErrorCode,iar.Id iarId from Ticket t
+        ticket_sql = '''select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'AT-ERROR' ErrorCode,iar.Id iarId from Ticket t
 left join IarUpdate iar
 on t.Id=iar.TicketId
-where t.insertDate>=@startDate
-and t.insertDate<@endDate
+where t.insertDate>=CAST(DATEADD(day,-1,GETDATE()) AS date)
+and t.insertDate<CAST(GETDATE() AS date)
 and t.Status not like '[NV]%'
 and t.sourceFrom in ('GAT','SAT')
 and ISNULL(t.McoNumber,'')=''
@@ -159,18 +149,13 @@ and (iar.Id is null or iar.IsPutError=0)
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
         '''
     elif error_code == "QC-BROKE":
-        ticket_sql = '''
-                declare @startDate date
-        declare @endDate date
-        set @startDate=DATEADD(day,-3,GETDATE())
-        set @endDate=GETDATE()
-        select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-BROKE' ErrorCode,iar.Id iarId from Ticket t
+        ticket_sql = '''select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-BROKE' ErrorCode,iar.Id iarId from Ticket t
         inner join TicketQC qc
         on t.Id = qc.TicketId
         left join IarUpdate iar
         on t.Id=iar.TicketId
-        where t.insertDate>=@startDate
-        and t.insertDate<@endDate
+        where t.insertDate>=CAST(DATEADD(day,-3,GETDATE()) AS date)
+        and t.insertDate<CAST(GETDATE() AS date)
         and t.Status not like '[NV]%'
         and qc.OPStatus=16
         and (iar.Id is null or iar.IsPutError=0)
@@ -234,13 +219,11 @@ sql_pwd_44 = conf.get(section_sql_44, "pwd")
 
 # --------------------------------------------execute sql--------------------------------
 ms = arc.MSSQL(server=sql_server, db=sql_database, user=sql_user, pwd=sql_pwd)
-sql = ('''declare @t date
-set @t=DATEADD(DAY,-1,GETDATE())
-select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-ERROR' ErrorCode,iar.Id iarId from Ticket t
+sql = ('''select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-ERROR' ErrorCode,iar.Id iarId from Ticket t
 left join IarUpdate iar
 on t.Id=iar.TicketId
 where Status not like '[NV]%'
-and IssueDate=@t
+and IssueDate=CAST(DATEADD(DAY,-1,GETDATE()) AS DATE)
 and ISNULL(McoNumber,'')=''
 and (iar.Id is null or iar.IsUpdated=0)
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
@@ -273,7 +256,7 @@ right join TicketDuplicate td
 on t.id=td.id
 left join IarUpdate iar
 on t.Id=iar.TicketId
-where td.insertDateTime>=DATEADD(day,-7,getdate())
+where td.insertDateTime>=CAST(DATEADD(day,-7,getdate()) AS DATE)
 and ISNULL(McoNumber,'')=''
 and td.isARCUpdated=0
 and (iar.IsUpdated is null or iar.IsUpdated=0)
@@ -287,7 +270,7 @@ right join TicketQC qc
 on t.id=qc.TicketId
 left join IarUpdate iar
 on t.Id=iar.TicketId
-where qc.AGDate>=DATEADD(day,-3,getdate())
+where qc.AGDate>=CAST(DATEADD(day,-3,getdate()) AS DATE)
 and qc.AGStatus=1
 and (iar.Id is null or iar.IsPutError=0)
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
@@ -304,7 +287,7 @@ left join [CollectData].[dbo].TicketQC qc
 on t.Id=qc.TicketId
 left join IarUpdate iar
 on t.Id=iar.TicketId
-where t.insertDate>=@t and t.insertDate<DATEADD(DAY,1,@t)
+where t.insertDate>=CAST(DATEADD(DAY,-1,GETDATE()) AS DATE) and t.insertDate<CAST(GETDATE() AS DATE)
 and t.[Status] not like '[NV]%'
 and (t.TicketType is null or t.TicketType<>'EX')
 and t.Comm=0
@@ -323,7 +306,7 @@ select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,Arc
 left join IarUpdate iar
 on t.Id=iar.TicketId
 where (t.sourceFrom='SAT' or t.sourceFrom='GAT')
-and t.IssueDate=@t
+and t.IssueDate=CAST(DATEADD(DAY,-1,GETDATE()) AS DATE)
 and t.PaymentType='C'
 and (t.TicketNumber like '78[14]%' or t.TicketNumber like '731%' or t.TicketNumber like '876%' or t.TicketNumber like '880%')
 and t.Charge<t.Total
@@ -335,7 +318,7 @@ union
 select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-RE' ErrorCode,iar.Id iarId from Ticket t
 left join IarUpdate iar
 on t.Id=iar.TicketId
-where t.IssueDate=@t
+where t.IssueDate=CAST(DATEADD(DAY,-1,GETDATE()) AS DATE)
 and ((t.ArcNumber='45668571' and t.AgentSign in ('MM','MG','ZG','YU','S7'))
 	or (t.ArcNumber='45666574' and t.AgentSign in ('PF','NQ','LL','XL')))
 and TicketNumber not like '180%'
@@ -351,7 +334,7 @@ union
 select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-ERROR' ErrorCode,iar.Id iarId from Ticket t
 left join IarUpdate iar
 on t.Id=iar.TicketId
-where t.IssueDate=@t
+where t.IssueDate=CAST(DATEADD(DAY,-1,GETDATE()) AS DATE)
 and PaymentType='C'
 and Status not like '[NV]%'
 and 
@@ -370,7 +353,7 @@ union
 select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-Cabin' ErrorCode,iar.Id iarId from Ticket t
 left join IarUpdate iar
 on t.Id=iar.TicketId
-where t.insertDate>=@t and t.insertDate<DATEADD(DAY,1,@t)
+where t.insertDate>=CAST(DATEADD(DAY,-1,GETDATE()) AS DATE) and t.insertDate<CAST(GETDATE() AS DATE)
 and t.[Status] not like '[NV]%'
 and t.QCStatus=2 
 and t.QCMessage like 'Possible Cabin Abuse:%'
@@ -382,7 +365,7 @@ left join TicketQC qc
 on t.Id=qc.TicketId
 left join IarUpdate iar
 on t.Id=iar.TicketId
-where t.insertDate>=@t and t.insertDate<DATEADD(DAY,1,@t)
+where t.insertDate>=CAST(DATEADD(DAY,-1,GETDATE()) AS DATE) and t.insertDate<CAST(GETDATE() AS DATE)
 and qc.AGStatus=3
 and (iar.Id is null or iar.IsPutError=0)
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
@@ -391,7 +374,7 @@ union
 select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-RE' ErrorCode,iar.Id iarId from Ticket t
 left join IarUpdate iar
 on t.Id=iar.TicketId
-where t.IssueDate=@t
+where t.IssueDate=CAST(DATEADD(DAY,-1,GETDATE()) AS DATE)
 and t.AccountCode='TITPCC'
 and (TicketNumber like '[0-9][0-9][0-9]7%' or TicketNumber like '[0-9][0-9][0-9]86%')
 and (iar.Id is null or iar.IsPutError=0)
@@ -400,7 +383,7 @@ union
 select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-ERROR' ErrorCode,iar.Id iarId from Ticket t
 left join IarUpdate iar
 on t.Id=iar.TicketId
-where IssueDate>='2020-03-27'
+where IssueDate>=CAST(DATEADD(DAY,-1,GETDATE()) AS DATE)
 and agentSign='WS'
 and ArcNumber='23534803'
 and (TicketNumber like '[0-9][0-9][0-9]7%' or TicketNumber like '[0-9][0-9][0-9]86%')
@@ -410,14 +393,11 @@ order by ArcNumber,Ticket
 ''')
 
 select_sqls = []
-select_sqls.append('''
-declare @t date
-set @t=DATEADD(DAY,-1,GETDATE())
-select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-ERROR' ErrorCode,iar.Id iarId from Ticket t
+select_sqls.append('''select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-ERROR' ErrorCode,iar.Id iarId from Ticket t
 left join IarUpdate iar
 on t.Id=iar.TicketId
 where Status not like '[NV]%'
-and IssueDate=@t
+and IssueDate=CAST(DATEADD(DAY,-1,GETDATE()) AS DATE)
 and ISNULL(McoNumber,'')=''
 and (iar.Id is null or iar.IsUpdated=0)
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
@@ -475,10 +455,7 @@ and (iar.AuditorStatus is null or iar.AuditorStatus=0)
 and ISNULL(McoNumber,'')=''
 ''')
 
-select_sqls.append('''
-declare @t date
-set @t=DATEADD(DAY,-1,GETDATE())
-select aa.Id,aa.[SID],aa.TicketNumber,aa.Ticket,aa.IssueDate,aa.ArcNumber,aa.PaymentType,
+select_sqls.append('''select aa.Id,aa.[SID],aa.TicketNumber,aa.Ticket,aa.IssueDate,aa.ArcNumber,aa.PaymentType,
 aa.Comm,aa.ErrorCode,aa.iarId from (
 select t.Id,t.[SID],t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,PaymentType,
 case when iar.Commission is null then t.Comm else iar.Commission end Comm,
@@ -489,7 +466,7 @@ left join [CollectData].[dbo].TicketQC qc
 on t.Id=qc.TicketId
 left join IarUpdate iar
 on t.Id=iar.TicketId
-where t.IssueDate>=@t and t.IssueDate<DATEADD(DAY,1,@t)
+where t.IssueDate>=CAST(DATEADD(DAY,-1,GETDATE()) AS DATE) and t.IssueDate<CAST(GETDATE() AS DATE)
 and t.[Status] not like '[NV]%'
 and (t.TicketType is null or t.TicketType<>'EX')
 and t.Comm=0
@@ -505,13 +482,10 @@ where aa.Profit<0
 and -aa.Profit > Base*0.05
 ''')
 
-select_sqls.append('''
-declare @t date
-set @t=DATEADD(DAY,-1,GETDATE())
-select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'AT-ERROR' ErrorCode,iar.Id iarId from Ticket t
+select_sqls.append('''select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'AT-ERROR' ErrorCode,iar.Id iarId from Ticket t
 left join IarUpdate iar
 on t.Id=iar.TicketId
-where t.IssueDate=@t
+where t.IssueDate=CAST(DATEADD(DAY,-1,GETDATE()) AS DATE)
 and t.PaymentType='C'
 and (t.TicketNumber like '78[14]%' or t.TicketNumber like '731%' or t.TicketNumber like '876%' or t.TicketNumber like '880%')
 and t.Charge<t.Total
@@ -522,13 +496,10 @@ and (iar.Id is null or iar.IsPutError=0)
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
 ''')
 
-select_sqls.append('''
-declare @t date
-set @t=DATEADD(DAY,-1,GETDATE())
-select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-RE' ErrorCode,iar.Id iarId from Ticket t
+select_sqls.append('''select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-RE' ErrorCode,iar.Id iarId from Ticket t
 left join IarUpdate iar
 on t.Id=iar.TicketId
-where t.IssueDate=@t
+where t.IssueDate=CAST(DATEADD(DAY,-1,GETDATE()) AS DATE)
 and ((t.ArcNumber='45668571' and t.AgentSign in ('MM','MG','ZG','YU','S7'))
 	or (t.ArcNumber='45666574' and t.AgentSign in ('PF','NQ','LL','XL')))
 and TicketNumber not like '180%'
@@ -542,13 +513,10 @@ and (iar.Id is null or iar.IsPutError=0)
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
 ''')
 
-select_sqls.append('''
-declare @t date
-set @t=DATEADD(DAY,-1,GETDATE())
-select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-ERROR' ErrorCode,iar.Id iarId from Ticket t
+select_sqls.append('''select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-ERROR' ErrorCode,iar.Id iarId from Ticket t
 left join IarUpdate iar
 on t.Id=iar.TicketId
-where t.IssueDate=@t
+where t.IssueDate=CAST(DATEADD(DAY,-1,GETDATE()) AS DATE)
 and PaymentType='C'
 and Status not like '[NV]%'
 and 
@@ -565,13 +533,10 @@ and (iar.Id is null or iar.IsPutError=0)
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
 ''')
 
-select_sqls.append('''
-declare @t date
-set @t=DATEADD(DAY,-1,GETDATE())
-select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-Cabin' ErrorCode,iar.Id iarId from Ticket t
+select_sqls.append('''select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-Cabin' ErrorCode,iar.Id iarId from Ticket t
 left join IarUpdate iar
 on t.Id=iar.TicketId
-where t.insertDate>=@t and t.insertDate<DATEADD(DAY,1,@t)
+where t.insertDate>=CAST(DATEADD(DAY,-1,GETDATE()) AS DATE) and t.insertDate<CAST(GETDATE() AS DATE)
 and t.[Status] not like '[NV]%'
 and t.QCStatus=2 
 and t.QCMessage like 'Possible Cabin Abuse:%'
@@ -579,41 +544,32 @@ and (iar.Id is null or iar.IsPutError=0)
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
 ''')
 
-select_sqls.append('''
-declare @t date
-set @t=DATEADD(DAY,-1,GETDATE())
-select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-AG' ErrorCode,iar.Id iarId from Ticket t
+select_sqls.append('''select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-AG' ErrorCode,iar.Id iarId from Ticket t
 left join TicketQC qc
 on t.Id=qc.TicketId
 left join IarUpdate iar
 on t.Id=iar.TicketId
-where t.insertDate>=@t and t.insertDate<DATEADD(DAY,1,@t)
+where t.insertDate>=CAST(DATEADD(DAY,-1,GETDATE()) AS DATE) and t.insertDate<CAST(GETDATE() AS DATE)
 and qc.AGStatus=3
 and (iar.Id is null or iar.IsPutError=0)
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
 and ISNULL(qc.AGDate,'1900-1-1') >= ISNULL(qc.OPDate,'1900-1-1')
 ''')
 
-select_sqls.append('''
-declare @t date
-set @t=DATEADD(DAY,-1,GETDATE())
-select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-RE' ErrorCode,iar.Id iarId from Ticket t
+select_sqls.append('''select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-RE' ErrorCode,iar.Id iarId from Ticket t
 left join IarUpdate iar
 on t.Id=iar.TicketId
-where t.IssueDate=@t
+where t.IssueDate=CAST(DATEADD(DAY,-1,GETDATE()) AS DATE)
 and t.AccountCode='TITPCC'
 and (TicketNumber like '[0-9][0-9][0-9]7%' or TicketNumber like '[0-9][0-9][0-9]86%')
 and (iar.Id is null or iar.IsPutError=0)
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
 ''')
 
-select_sqls.append('''
-declare @t date
-set @t=DATEADD(DAY,-1,GETDATE())
-select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-ERROR' ErrorCode,iar.Id iarId from Ticket t
+select_sqls.append('''select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'QC-ERROR' ErrorCode,iar.Id iarId from Ticket t
 left join IarUpdate iar
 on t.Id=iar.TicketId
-where IssueDate>='2020-03-27'
+where IssueDate>=cast(DATEADD(DAY,-1,GETDATE()) as date)
 and agentSign='WS'
 and ArcNumber='23534803'
 and (TicketNumber like '[0-9][0-9][0-9]7%' or TicketNumber like '[0-9][0-9][0-9]86%')

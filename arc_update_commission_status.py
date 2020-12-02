@@ -352,62 +352,10 @@ sql_user = conf.get("sql", "user")
 sql_pwd = conf.get("sql", "pwd")
 ms = arc.MSSQL(server=sql_server, db=sql_database, user=sql_user, pwd=sql_pwd)
 
-# sql = ('''
-# declare @t date
-# set @t=dateadd(day,-7,getdate())
-# select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
-# t.Comm,t.TourCode,qc.AGComm UpdateComm,qc.AGTourCode UpdateTourCode,qc.OPUser,qc.OPLastUser,t.FareType,qc.AGStatus,
-# 'AG' updatedByRole,iar.Id IarId from Ticket t
-# left join TicketQC qc
-# on t.Id=qc.TicketId
-# left join IarUpdate iar
-# on t.Id=iar.TicketId
-# where (qc.ARCupdated=0 or (qc.ARCupdated=1 and iar.IsUpdated=0 and iar.runTimes=0))
-# and qc.AGStatus=1
-# and (iar.Commission is null or iar.Commission<>qc.AGComm or iar.TourCode<>qc.AGTourCode)
-# and (iar.AuditorStatus is null or iar.AuditorStatus=0)
-# and t.insertDate>=@t
-# and ISNULL(qc.AGDate,'1900-1-1') >= ISNULL(qc.OPDate,'1900-1-1')
-# union
-# select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
-# t.Comm,t.TourCode,qc.OPComm UpdateComm,qc.OPTourCode UpdateTourCode,qc.OPUser,qc.OPLastUser,t.FareType,qc.AGStatus,
-# 'OP' updatedByRole,iar.Id IarId from Ticket t
-# left join TicketQC qc
-# on t.Id=qc.TicketId
-# left join IarUpdate iar
-# on t.Id=iar.TicketId
-# where (qc.ARCupdated=0 or (qc.ARCupdated=1 and iar.IsUpdated=0 and iar.runTimes=0))
-# and qc.OPStatus=2
-# and (qc.AGStatus<>3 or (qc.AGStatus=3 and ISNULL(qc.OPDate,'1900-1-1') >= ISNULL(qc.AGDate,'1900-1-1')))
-# and (t.Comm<>qc.OPComm or t.TourCode<>qc.OPTourCode)
-# and (iar.Commission is null or iar.Commission<>qc.OPComm or ISNULL(iar.TourCode,'')<>ISNULL(qc.OPTourCode,''))
-# and (iar.AuditorStatus is null or iar.AuditorStatus=0)
-# and t.insertDate>=@t
-# union
-# select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
-# t.Comm,t.TourCode,qc.OPComm UpdateComm,qc.OPTourCode UpdateTourCode,qc.OPUser,qc.OPLastUser,t.FareType,qc.AGStatus,
-# 'OPA' updatedByRole,iar.Id IarId from Ticket t
-# left join TicketQC qc
-# on t.Id=qc.TicketId
-# left join IarUpdate iar
-# on t.Id=iar.TicketId
-# where (qc.ARCupdated=0 or (qc.ARCupdated=1 and iar.IsUpdated=0 and iar.runTimes=0))
-# and qc.OPStatus in (1, 15)
-# and qc.OPComm is not null
-# and (qc.AGStatus<>3 or (qc.AGStatus=3 and ISNULL(qc.OPDate,'1900-1-1') >= ISNULL(qc.AGDate,'1900-1-1')))
-# and (qc.OPComm<> t.Comm or ISNULL(qc.OPTourCode,'')<>ISNULL(t.TourCode,''))
-# and (iar.Commission is null or iar.Commission<>qc.OPComm or ISNULL(iar.TourCode,'')<>ISNULL(qc.OPTourCode,''))
-# and (iar.AuditorStatus is null or iar.AuditorStatus=0)
-# and t.insertDate>=@t
-# order by IssueDate
-# ''')
 
 select_sqls = []
 
-select_sqls.append('''
-declare @t date
-set @t=dateadd(day,-7,getdate())
-select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
+select_sqls.append('''select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
 t.Comm,t.TourCode,qc.AGComm UpdateComm,qc.AGTourCode UpdateTourCode,qc.OPUser,qc.OPLastUser,t.FareType,qc.AGStatus,
 'AG' updatedByRole,iar.Id IarId from Ticket t
 left join TicketQC qc
@@ -418,14 +366,11 @@ where (qc.ARCupdated=0 or (qc.ARCupdated=1 and iar.IsUpdated=0 and iar.runTimes=
 and qc.AGStatus=1
 and (iar.Commission is null or iar.Commission<>qc.AGComm or iar.TourCode<>qc.AGTourCode)
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
-and t.insertDate>=@t
+and t.insertDate>=CAST(DATEADD(DAY,-7,GETDATE()) AS DATE)
 and ISNULL(qc.AGDate,'1900-1-1') >= ISNULL(qc.OPDate,'1900-1-1')
 ''')
 
-select_sqls.append('''
-declare @t date
-set @t=dateadd(day,-7,getdate())
-select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
+select_sqls.append('''select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
 t.Comm,t.TourCode,qc.OPComm UpdateComm,qc.OPTourCode UpdateTourCode,qc.OPUser,qc.OPLastUser,t.FareType,qc.AGStatus,
 'OP' updatedByRole,iar.Id IarId from Ticket t
 left join TicketQC qc
@@ -438,13 +383,10 @@ and (qc.AGStatus<>3 or (qc.AGStatus=3 and ISNULL(qc.OPDate,'1900-1-1') >= ISNULL
 and (t.Comm<>qc.OPComm or t.TourCode<>qc.OPTourCode)
 and (iar.Commission is null or iar.Commission<>qc.OPComm or ISNULL(iar.TourCode,'')<>ISNULL(qc.OPTourCode,''))
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
-and t.insertDate>=@t
+and t.insertDate>=CAST(DATEADD(DAY,-7,GETDATE()) AS DATE)
 ''')
 
-select_sqls.append('''
-declare @t date
-set @t=dateadd(day,-7,getdate())
-select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
+select_sqls.append('''select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
 t.Comm,t.TourCode,qc.OPComm UpdateComm,qc.OPTourCode UpdateTourCode,qc.OPUser,qc.OPLastUser,t.FareType,qc.AGStatus,
 'OPA' updatedByRole,iar.Id IarId from Ticket t
 left join TicketQC qc
@@ -458,7 +400,7 @@ and (qc.AGStatus<>3 or (qc.AGStatus=3 and ISNULL(qc.OPDate,'1900-1-1') >= ISNULL
 and (qc.OPComm<> t.Comm or ISNULL(qc.OPTourCode,'')<>ISNULL(t.TourCode,''))
 and (iar.Commission is null or iar.Commission<>qc.OPComm or ISNULL(iar.TourCode,'')<>ISNULL(qc.OPTourCode,''))
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
-and t.insertDate>=@t
+and t.insertDate>=CAST(DATEADD(DAY,-7,GETDATE()) AS DATE)
 ''')
 
 list_data = []

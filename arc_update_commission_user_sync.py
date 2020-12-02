@@ -211,12 +211,7 @@ mail_subject = conf.get("email", "subject") + " by user sync"
 mail = arc.Email(is_local=mail_is_local, smtp_server=mail_smtp_server, smtp_port=mail_smtp_port, is_enable_ssl=mail_is_enable_ssl,
                      user=mail_user, password=mail_password)
 
-sql = ('''
-declare @start date
-declare @end date
-set @start=dateadd(day,-5,getdate())
-set @end=GETDATE()
-select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
+sql = ('''select t.Id,qc.Id qcId,t.TicketNumber,substring(t.TicketNumber,4,10) Ticket,t.IssueDate,t.ArcNumber,t.PaymentType,
 t.Comm,t.TourCode,qc.AGComm UpdateComm,qc.AGTourCode UpdateTourCode,iar.Id IarId from Ticket t
 left join TicketQC qc
 on t.Id=qc.TicketId
@@ -225,8 +220,8 @@ on t.Id=iar.TicketId
 where qc.AGStatus=3
 and ISNULL(qc.AGDate,'1900-1-1') >= ISNULL(qc.OPDate,'1900-1-1')
 and (iar.Commission is null or iar.Commission<>qc.AGComm or ISNULL(iar.TourCode,'')<>ISNULL(qc.AGTourCode,''))
-and t.IssueDate>=@start
-and t.IssueDate<@end
+and t.IssueDate>=CAST(DATEADD(DAY,-3,GETDATE()) AS DATE)
+and t.IssueDate<CAST(GETDATE() AS DATE)
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
 and iar.syncTimes<3
 union
@@ -242,8 +237,8 @@ and (qc.AGStatus<>3 or (qc.AGStatus=3 and ISNULL(qc.OPDate,'1900-1-1') >= ISNULL
 and (iar.Commission is null or iar.Commission<>qc.OPComm or ISNULL(iar.TourCode,'')<>ISNULL(qc.OPTourCode,''))
 and (iar.AuditorStatus is null or iar.AuditorStatus=0)
 and iar.syncTimes<3
-and t.IssueDate>=@start
-and t.IssueDate<@end
+and t.IssueDate>=CAST(DATEADD(DAY,-3,GETDATE()) AS DATE)
+and t.IssueDate<CAST(GETDATE() AS DATE)
 order by t.ArcNumber
 ''')
 
