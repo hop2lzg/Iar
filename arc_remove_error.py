@@ -158,7 +158,7 @@ try:
     date_time = datetime.datetime.now()
     date_week = date_time.weekday()
     if date_week == 0:
-        error_codes = error_codes + "|QC-RE"
+        error_codes = error_codes + "|QC-RE|AT-ERROR"
     date_ped = date_time + datetime.timedelta(days=(6 - date_time.weekday()))
     if date_week < 2:
         date_ped = date_ped + datetime.timedelta(days=-7)

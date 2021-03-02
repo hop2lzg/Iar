@@ -139,8 +139,8 @@ and (iar.AuditorStatus is null or iar.AuditorStatus=0)
         ticket_sql = '''select t.Id,[SID],TicketNumber,substring(TicketNumber,4,10) Ticket,IssueDate,ArcNumber,PaymentType,t.Comm,'AT-ERROR' ErrorCode,iar.Id iarId from Ticket t
 left join IarUpdate iar
 on t.Id=iar.TicketId
-where t.insertDate>=CAST(DATEADD(day,-1,GETDATE()) AS date)
-and t.insertDate<CAST(GETDATE() AS date)
+where ((t.insertDate>=CAST(DATEADD(day,-1,GETDATE()) AS date)
+and t.insertDate<CAST(GETDATE() AS date)) or t.IssueDate=CAST(DATEADD(DAY,-1,GETDATE()) AS DATE))
 and t.Status not like '[NV]%'
 and t.sourceFrom in ('GAT','SAT')
 and ISNULL(t.McoNumber,'')=''
